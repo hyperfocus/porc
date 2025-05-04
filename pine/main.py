@@ -27,7 +27,7 @@ def validate(file: Path):
                 errors.append(f"{field} is required when {cond_field}={cond_value}")
 
     if not errors:
-        schema_path = SCHEMA_DIR / blueprint["kind"] / f"{blueprint["schema_version"]}.json"
+        schema_path = SCHEMA_DIR / blueprint["kind"] / f"{blueprint['schema_version']}.json"
         if not schema_path.exists():
             typer.echo(f"Schema not found: {schema_path}")
             raise typer.Exit(code=2)

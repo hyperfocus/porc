@@ -36,7 +36,6 @@ jobs:
           cp DOCUMENTATION.md wiki/
           cp docs/architecture.md wiki/Architecture.md
           cp pine/docs/usage.md wiki/PINE-Usage.md
-          cp logo.png wiki/logo.png
 
       - name: Commit and push to wiki
         run: |

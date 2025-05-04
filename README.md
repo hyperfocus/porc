@@ -1,3 +1,5 @@
+![PORC Logo](logo.png)
+
 # PORC: Platform Orchestrator
 
 **PORC** (Platform Orchestrator) is an internal service designed to orchestrate infrastructure provisioning through Terraform Enterprise using blueprints submitted by developers, Port, or GitHub workflows.
@@ -30,4 +32,3 @@ python pine/main.py validate examples/my-blueprint.json
 - GitHub and Port ID traceability
 - TFE workspace and Sentinel policy enforcement
 - CLI and API alignment
-
