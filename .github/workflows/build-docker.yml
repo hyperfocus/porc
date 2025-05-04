@@ -1,0 +1,32 @@
+name: Build Docker Image
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: |
+          docker build -t porc:latest -f docker/Dockerfile .
+
+      - name: Save Docker image as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: porc-docker-image
+          path: |
+            /tmp/porc-docker.tar
+
+      - name: Save image to tar
+        run: |
+          docker save porc:latest -o /tmp/porc-docker.tar

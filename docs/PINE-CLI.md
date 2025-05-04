@@ -19,17 +19,17 @@ pine lint examples/my-blueprint.json
 
 ---
 
-### `pine render <file> --out <directory>`
-Renders Terraform configuration (`main.tf`, `terraform.tfvars.json`) from blueprint.
+### `pine submit <file>`
+Submits blueprint to Port after validation (`main.tf`, `terraform.tfvars.json`) from blueprint.
 
 - **Input**: Path to blueprint file
 - **Flags**:
-  - `--out`: Output directory for rendered `.tf` files
+  - `--out`: Optional flags for tagging or metadata
 - **Returns**: Renders files to specified directory
 
 #### Example
 ```bash
-pine render examples/gke-blueprint.json --out ./rendered/gke/
+pine submit examples/gke-blueprint.json
 ```
 
 ---

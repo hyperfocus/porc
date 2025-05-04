@@ -27,7 +27,7 @@ flowchart LR
   D -->|GitHub Action| E[PORC API]
   D -->|Kafka Message| E
 
-  E --> F[PINE: Lint + Render]
+  E --> F[PINE: Lint + Submit Blueprint to Port]
   E --> G[Build + Plan + Apply to Terraform Cloud]
   E --> H[Sync Status to Port]
 
@@ -62,7 +62,7 @@ Developer --> GitHub Repo --> Port Blueprint --> [Kafka or Webhook]
 - Stored locally by PORC and assigned a `run_id`
 
 ### Rendering
-- PINE is invoked to lint and render Terraform from blueprint
+- PINE is used to validate blueprint schema and submit it to Port
 - Output files: `main.tf`, `terraform.tfvars.json`
 
 ### Execution
