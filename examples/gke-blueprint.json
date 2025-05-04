@@ -1,0 +1,13 @@
+{
+  "kind": "gke-cluster",
+  "schema_version": "v1",
+  "owner": "devops@td.com",
+  "approval_required": true,
+  "change_record": "CHG123456",
+  "description": "Create a GKE cluster for TD DevOps",
+  "inputs": {
+    "cluster_name": "td-dev-cluster",
+    "region": "us-central1",
+    "node_count": 3
+  }
+}
