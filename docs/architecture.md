@@ -16,7 +16,27 @@ PORC consists of:
 
 ---
 
-## Flow Diagram (Simplified)
+## Mermaid Flow Diagram (Corrected)
+
+```mermaid
+flowchart LR
+  A[Developer] --> B[GitHub Repo]
+  B --> C[Port Blueprint]
+  C --> D{Webhook or Kafka}
+
+  D -->|GitHub Action| E[PORC API]
+  D -->|Kafka Message| E
+
+  E --> F[PINE: Lint + Render]
+  E --> G[Build + Plan + Apply to Terraform Cloud]
+  E --> H[Sync Status to Port]
+
+  G --> I[Sentinel Policy Enforcement]
+  G --> J[Terraform Apply]
+
+  E --> K[Logs + Metadata Store]
+  K --> L[Reports, Metrics, Callbacks]
+```
 
 ```
 Developer --> GitHub Repo --> Port Blueprint --> [Kafka or Webhook]
