@@ -1,0 +1,33 @@
+name: Sync Documentation to Wiki
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'pine/docs/**'
+      - 'CONTRIBUTING.md'
+      - 'CHANGELOG.md'
+      - 'DOCUMENTATION.md'
+      - 'README.md'
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Prepare wiki content
+        run: |
+          mkdir wiki
+          cp README.md wiki/Home.md
+          cp CONTRIBUTING.md wiki/
+          cp CHANGELOG.md wiki/
+          cp DOCUMENTATION.md wiki/
+          cp docs/architecture.md wiki/Architecture.md
+          cp pine/docs/usage.md wiki/PINE-Usage.md
+
+      - name: Push to Wiki
+        uses: swift-docs/github-wiki-action@v1
+        with:
+          path: wiki

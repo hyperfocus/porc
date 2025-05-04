@@ -1,1 +1,21 @@
-{ "type": "object", "properties": { "cluster_name": {"type": "string"} }, "required": ["cluster_name"] }
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "cluster_name",
+    "region",
+    "node_count"
+  ],
+  "properties": {
+    "cluster_name": {
+      "type": "string"
+    },
+    "region": {
+      "type": "string"
+    },
+    "node_count": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

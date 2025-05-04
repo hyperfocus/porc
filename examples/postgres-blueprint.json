@@ -1,0 +1,12 @@
+{
+  "kind": "postgres-db",
+  "schema_version": "v1",
+  "owner": "datateam@td.com",
+  "approval_required": false,
+  "description": "Provision a standard Postgres instance for analytics",
+  "inputs": {
+    "db_name": "td-insights",
+    "db_user": "tdadmin",
+    "plan": "standard"
+  }
+}
