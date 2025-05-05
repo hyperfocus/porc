@@ -88,10 +88,10 @@ async def run_plan(run_id: str = Path(...)):
 external_id = data["blueprint"].get("metadata", {}).get("external_id", "")
 post_check(run_id, external_id, "PORC Plan", "success", "Terraform plan was queued successfully.")
 data["status"] = "plan_queued"
-    data["plan_started"] = datetime.utcnow().isoformat()
-    data["tfe_run_id"] = tfe_run_id
+data["plan_started"] = datetime.utcnow().isoformat()
+data["tfe_run_id"] = tfe_run_id
 
-    with open(meta_file, "w") as f:
+with open(meta_file, "w") as f:
         json.dump(data, f, indent=2)
 
     return {"run_id": run_id, "tfe_run_id": tfe_run_id, "status": "plan_queued"}
@@ -102,7 +102,7 @@ async def run_apply(run_id: str = Path(...)):
     if not os.path.exists(meta_file):
         return {"error": "Run ID not found"}
 
-    with open(meta_file) as f:
+with open(meta_file) as f:
         data = json.load(f)
 
     if data["status"] not in ["plan_queued", "planned"]:
@@ -132,7 +132,7 @@ post_check(run_id, external_id, "PORC Apply", "success", "Terraform apply was tr
 data["status"] = "apply_queued"
     data["apply_started"] = datetime.utcnow().isoformat()
 
-    with open(meta_file, "w") as f:
+with open(meta_file, "w") as f:
         json.dump(data, f, indent=2)
 
     return {"run_id": run_id, "status": "apply_queued", "tfe_run_id": tfe_run_id}
@@ -145,7 +145,7 @@ async def notify_port(run_id: str = Path(...)):
     if not os.path.exists(meta_file):
         return {"error": "Run ID not found"}
 
-    with open(meta_file) as f:
+with open(meta_file) as f:
         data = json.load(f)
 
     run_dir = f"{RUNS_PATH}/{run_id}/port_notify"
@@ -212,7 +212,7 @@ resource "port_entity" "porc_run" {{
     data["sync_status"] = status
     data["last_sync_time"] = log_event["timestamp"]
 
-    with open(meta_file, "w") as f:
+with open(meta_file, "w") as f:
         json.dump(data, f, indent=2)
 
     if status == "failed":
@@ -223,7 +223,7 @@ async def notify_port(run_id: str = Path(...)):
     if not os.path.exists(meta_file):
         return {"error": "Run ID not found"}
 
-    with open(meta_file) as f:
+with open(meta_file) as f:
         data = json.load(f)
 
     run_dir = f"{RUNS_PATH}/{run_id}/port_notify"
@@ -351,7 +351,7 @@ async def report_run(run_id: str = Path(...)):
     if not os.path.exists(meta_file):
         return {"error": "Metadata not found"}
 
-    with open(meta_file) as f:
+with open(meta_file) as f:
         metadata = json.load(f)
 
     logs = []
