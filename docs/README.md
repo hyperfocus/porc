@@ -10,23 +10,23 @@ This system enables Terraform-based paved paths with policy enforcement, approva
 ## Documentation Contents
 
 ### System Overview
-- [Architecture](Architecture.md) – Component breakdown, flowcharts, and storage model
+- [Architecture](https://github.com/hyperfocus/porc/blob/main/docs/Architecture.md) – Component breakdown, flowcharts, and storage model
 - [flowchart.mmd](flowchart.mmd) – Standalone Mermaid diagram source
 
 ### Core Interfaces
-- [API Reference](API.md) – REST API for blueprint processing, run orchestration, logging, and reporting
-- [PINE CLI Reference](PINE-CLI.md) – Command-line tool for blueprint validation and rendering
+- [API Reference](https://github.com/hyperfocus/porc/blob/main/docs/API.md) – REST API for blueprint processing, run orchestration, logging, and reporting
+- [PINE CLI Reference](https://github.com/hyperfocus/porc/blob/main/docs/PINE-CLI.md) – Command-line tool for blueprint validation and rendering
 
 ### Policy, Compliance & Governance
-- [Blueprint Security Checks](Blueprint-Security.md) – Early validation rules applied by PINE
-- [Sentinel Policy Enforcement](Sentinel-Policies.md) – Remote Sentinel execution in TFE
-- [Approval & Change Control](Approvals.md) – ServiceNow integration and override rules
+- [Blueprint Security Checks](https://github.com/hyperfocus/porc/blob/main/docs/Blueprint-Security.md) – Early validation rules applied by PINE
+- [Sentinel Policy Enforcement](https://github.com/hyperfocus/porc/blob/main/docs/Sentinel-Policies.md) – Remote Sentinel execution in TFE
+- [Approval & Change Control](https://github.com/hyperfocus/porc/blob/main/docs/Approvals.md) – ServiceNow integration and override rules
 
 ### Integrations
-- [Port Sync Guide](Port-Sync.md) – How PORC syncs metadata to Port using Terraform provider
+- [Port Sync Guide](https://github.com/hyperfocus/porc/blob/main/docs/Port-Sync.md) – How PORC syncs metadata to Port using Terraform provider
 
 ### Metadata & Reports
-- [Metadata Spec](Metadata.md) – Format and fields used for PORC run tracking
+- [Metadata Spec](https://github.com/hyperfocus/porc/blob/main/docs/Metadata.md) – Format and fields used for PORC run tracking
 - [Report API](API.md#reporting) – View logs, run files, and status summaries
 
 ---

@@ -52,6 +52,6 @@ PORC enforces:
 See the `/docs` folder for:
 - [PINE Usage Guide](docs/PINE%20Usage%20Guide.md)
 - [PINE CLI Reference](docs/PINE%20CLI%20Reference.md)
-- [Architecture](Architecture.md)
-- [API Reference](API.md)
+- [Architecture](https://github.com/hyperfocus/porc/blob/main/docs/Architecture.md)
+- [API Reference](https://github.com/hyperfocus/porc/blob/main/docs/API.md)
 - [Development Status](docs/Development%20Status.md)
