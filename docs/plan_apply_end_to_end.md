@@ -29,4 +29,11 @@ This document explains how Terraform infrastructure is rendered, planned, and ap
 | Apply        | GitHub / PORC | GitHub / Mongo     | Terraform UI button    |
 | Policies     | Terraform     | TFE Sentinel logs  | None                   |
 
-Note: Approval and apply steps are now enforced via token-authenticated endpoints.
+### Blueprint Lifecycle (PORC and TFE)
+
+1. `pine submit` → sends blueprint to PORC
+2. `pine build` → PORC renders templates and uploads to TFE as config version
+3. `pine plan` → triggers a remote TFE plan
+4. `pine apply` → applies the changes if approved
+
+Sentinel policies are enforced during TFE plan/apply runs.

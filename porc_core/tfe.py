@@ -51,3 +51,43 @@ def trigger_plan_run(workspace_id, config_id):
     r = requests.post(url, headers=headers, json=payload)
     r.raise_for_status()
     return r.json()["data"]["id"]
+
+
+def upload_tarball(upload_url, directory):
+    import tarfile
+    import tempfile
+
+    tar_path = tempfile.NamedTemporaryFile(delete=False, suffix=".tar.gz").name
+
+    with tarfile.open(tar_path, "w:gz") as tar:
+        tar.add(directory, arcname=".")
+
+    with open(tar_path, "rb") as f:
+        headers = {"Content-Type": "application/octet-stream"}
+        response = requests.put(upload_url, headers=headers, data=f)
+        if response.status_code != 200:
+            raise Exception(f"Failed to upload configuration: {response.text}")
+
+def create_run(workspace_id, config_version_id, auto_apply=False):
+    url = f"{TFE_HOST}/runs"
+    payload = {
+        "data": {
+            "attributes": {
+                "auto-apply": auto_apply,
+                "is-destroy": False
+            },
+            "type": "runs",
+            "relationships": {
+                "workspace": {
+                    "data": {"type": "workspaces", "id": workspace_id}
+                },
+                "configuration-version": {
+                    "data": {"type": "configuration-versions", "id": config_version_id}
+                }
+            }
+        }
+    }
+    r = requests.post(url, headers=headers, json=payload)
+    if r.status_code != 201:
+        raise Exception(f"Failed to create run: {r.text}")
+    return r.json()

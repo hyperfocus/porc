@@ -1,18 +1,4 @@
-
-def verify_token(request: Request):
-    expected_token = os.getenv("PORC_AUTH_TOKEN")
-    auth_header = request.headers.get("Authorization")
-    if not expected_token or not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
-    token = auth_header.split(" ", 1)[1]
-    if token != expected_token:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-
-
-from fastapi import FastAPI, Request, Path, HTTPException, Depends
-
+from fastapi import FastAPI, Request, Path
 from porc_core.render import render_blueprint
 import os
 import json
@@ -26,7 +12,7 @@ os.makedirs(DB_PATH, exist_ok=True)
 os.makedirs(RUNS_PATH, exist_ok=True)
 
 @app.post("/blueprint")
-async def submit_blueprint(request: Request, _: None = Depends(verify_token)):
+async def submit_blueprint(request: Request):
     blueprint = await request.json()
     run_id = f"porc-{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')[:-3]}"
     record = {
@@ -424,31 +410,99 @@ async def report_summary():
     }
 
 
-@app.post("/blueprints/{blueprint_id}/approve")
-async def approve_blueprint(blueprint_id: str, _: None = Depends(verify_token)):
-    record_path = f"{DB_PATH}/{blueprint_id}.json"
+from fastapi.responses import JSONResponse
+import tarfile
+import tempfile
+import shutil
+from porc_core.render import render_blueprint
+from porc_core.tfe import (
+    get_workspace_id,
+    create_config_version,
+    upload_tarball,
+)
+
+@app.post("/runs/{run_id}/build")
+async def build_blueprint(run_id: str, _: None = Depends(verify_token)):
+    record_path = f"{DB_PATH}/{run_id}.json"
     if not os.path.exists(record_path):
-        raise HTTPException(status_code=404, detail="Blueprint not found")
-    
+        raise HTTPException(status_code=404, detail="Run ID not found")
+
     with open(record_path) as f:
         record = json.load(f)
-    record["status"] = "approved"
+
+    blueprint = record["blueprint"]
+    rendered_dir = tempfile.mkdtemp()
+
+    try:
+        render_blueprint(blueprint, rendered_dir)
+
+        workspace_name = blueprint["metadata"]["workspace"]
+        workspace_id = get_workspace_id(workspace_name)
+
+        config = create_config_version(workspace_id)
+        upload_tarball(config["upload_url"], rendered_dir)
+
+        record["status"] = "built"
+        record["workspace_id"] = workspace_id
+        record["config_version_id"] = config["id"]
+
+        with open(record_path, "w") as f:
+            json.dump(record, f, indent=2)
+
+        return {"run_id": run_id, "status": "built"}
+    finally:
+        shutil.rmtree(rendered_dir)
+
+
+
+from porc_core.tfe import create_run
+
+@app.post("/runs/{run_id}/plan")
+async def plan_blueprint(run_id: str, _: None = Depends(verify_token)):
+    record_path = f"{DB_PATH}/{run_id}.json"
+    if not os.path.exists(record_path):
+        raise HTTPException(status_code=404, detail="Run ID not found")
+
+    with open(record_path) as f:
+        record = json.load(f)
+
+    workspace_id = record.get("workspace_id")
+    config_version_id = record.get("config_version_id")
+
+    if not workspace_id or not config_version_id:
+        raise HTTPException(status_code=400, detail="Missing build info")
+
+    run = create_run(workspace_id, config_version_id, auto_apply=False)
+    record["tfe_run_id"] = run["data"]["id"]
+    record["status"] = "planned"
+
     with open(record_path, "w") as f:
         json.dump(record, f, indent=2)
 
-    return {"blueprint_id": blueprint_id, "status": "approved"}
+    return {"run_id": run["data"]["id"], "status": "planned"}
 
-@app.post("/blueprints/{blueprint_id}/apply")
-async def apply_blueprint(blueprint_id: str, _: None = Depends(verify_token)):
-    record_path = f"{DB_PATH}/{blueprint_id}.json"
+
+
+@app.post("/runs/{run_id}/apply")
+async def apply_blueprint(run_id: str, _: None = Depends(verify_token)):
+    record_path = f"{DB_PATH}/{run_id}.json"
     if not os.path.exists(record_path):
-        raise HTTPException(status_code=404, detail="Blueprint not found")
-    
+        raise HTTPException(status_code=404, detail="Run ID not found")
+
     with open(record_path) as f:
         record = json.load(f)
+
+    workspace_id = record.get("workspace_id")
+    config_version_id = record.get("config_version_id")
+
+    if not workspace_id or not config_version_id:
+        raise HTTPException(status_code=400, detail="Missing build info")
+
+    run = create_run(workspace_id, config_version_id, auto_apply=True)
+    record["tfe_run_id"] = run["data"]["id"]
     record["status"] = "applied"
-    record["applied_at"] = datetime.utcnow().isoformat()
+
     with open(record_path, "w") as f:
         json.dump(record, f, indent=2)
 
-    return {"blueprint_id": blueprint_id, "status": "applied"}
+    return {"run_id": run["data"]["id"], "status": "applied"}

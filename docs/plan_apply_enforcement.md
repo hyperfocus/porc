@@ -19,4 +19,11 @@ PORC enforces that a valid `plan` must run before any `apply` operation. This in
 - If `plan_status` != 'success' → reject apply
 - If `approval_required` = true → block until `approval_record` is present and validated
 
-Note: Approval and apply steps are now enforced via token-authenticated endpoints.
+### Blueprint Lifecycle (PORC and TFE)
+
+1. `pine submit` → sends blueprint to PORC
+2. `pine build` → PORC renders templates and uploads to TFE as config version
+3. `pine plan` → triggers a remote TFE plan
+4. `pine apply` → applies the changes if approved
+
+Sentinel policies are enforced during TFE plan/apply runs.

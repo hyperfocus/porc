@@ -89,3 +89,9 @@ Developer --> GitHub Repo --> Port Blueprint --> [Kafka or Webhook]
 - Replace FS with MongoDB or Postgres
 - Replace Kafka/Webhooks with unified pub/sub event layer
 - Add UI for reviewing plan/apply output and history
+
+### Client–Server Design
+
+- **PINE CLI**: Local developer interface (submit, build, plan, apply)
+- **PORC API**: Validates blueprints, renders Terraform, interacts with TFE
+- **TFE**: Executes plan and apply runs, enforces Sentinel policies
