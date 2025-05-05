@@ -4,7 +4,7 @@ flowchart TD
     B --> C[PORC Renders Terraform Configs]
     C --> D{Execution Path?}
     D -->|GitHub Action| E[Run terraform plan]
-    D -->|PORC CLI| F[POST /api/v2/runs (plan)]
+    D -->|PORC CLI| F[POST /api/v2/runs \(plan\)]
     E --> G[PORC Records Plan Status]
     F --> G
     G --> H{Approval Required?}
