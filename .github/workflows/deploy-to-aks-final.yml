@@ -34,7 +34,7 @@ jobs:
 
       - name: Build and Push Docker Image from ./docker
         run: |
-          docker build -t $ACR_NAME.azurecr.io/$IMAGE_NAME:latest ./docker
+          docker build -t $ACR_NAME.azurecr.io/$IMAGE_NAME:latest -f docker/Dockerfile .
           docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:latest
 
       - name: Create ACR Image Pull Secret
