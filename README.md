@@ -1,57 +1,59 @@
-![PORC Logo](https://github.com/hyperfocus/porc/raw/main/logo.png)
+# PORC (Platform Orchestrator)
 
-# PORC + PINE: Terraform Blueprint Orchestration Platform
+PORC is a centralized Terraform orchestrator designed to standardize blueprint submission, validation, rendering, and execution across teams.
 
-**PORC (Platform Orchestrator)** and **PINE (Platform Infrastructure Entrypoint)** work together to validate, render, and manage Terraform blueprints across a secure, policy-enforced deployment pipeline.
+## Features
 
----
+- CLI-driven lifecycle via PINE (`submit`, `build`, `plan`, `apply`)
+- Remote Terraform Enterprise (TFE) execution
+- Run metadata tracking and status reporting
+- Audit logging (per run)
+- External integration points for:
+  - Backstage (status-only)
+  - Port (catalog + status)
 
-## Components
+## Documentation
 
-### PINE (CLI)
-PINE is a lightweight CLI used by developers to interact with the orchestration system.
+- [Backstage Integration](docs/Backstage_Integration.md)
+- [Port Integration](docs/Port_Integration.md)
 
-**Local-only commands:**
-- `pine lint <file>` — Schema structure check
-- `pine validate <file>` — Blueprint spec validation
+## Audit & Observability
 
-**Remote/PORC-integrated commands:**
-- `pine submit <blueprint.json>` — Submit blueprint, receive `run_id`
-- `pine build --run-id <id>` — Render & upload Terraform package
-- `pine plan --run-id <id>` — Trigger plan via TFE
-- `pine apply --run-id <id>` — Trigger apply via TFE
+Each run is logged to `/tmp/porc-audit/{run_id}.log`, including:
+- Submit, build, plan, apply actions
+- Timestamps and metadata
+- Placeholders for:
+  - DataDog telemetry
+  - Dynatrace event reporting
 
----
+## Folder Structure
 
-### PORC (FastAPI Orchestrator)
-PORC receives validated blueprints, renders Terraform code, and interfaces with **Terraform Enterprise** to execute runs.
+```
+porc_api/
+  main.py
+  porc_audit.py
+  ...
+docs/
+  Backstage_Integration.md
+  Port_Integration.md
+```
 
-**Key Endpoints:**
-- `POST /blueprint`
-- `POST /runs/{run_id}/build`
-- `POST /runs/{run_id}/plan`
-- `POST /runs/{run_id}/apply`
+## Status Endpoints
 
-PORC enforces:
-- Schema + spec validation
-- Sentinel policy checks via TFE
-- Auth via `Authorization: Bearer <token>`
+- `GET /run/{run_id}/status` - lightweight polling status
+- `GET /run/{run_id}/summary` - full metadata for UI integrations
 
----
+## Audit & Metrics
 
-## Terraform Integration
+PORC automatically logs:
 
-- Remote runs handled via **Terraform Enterprise API**
-- Configurations uploaded via `configuration-versions`
-- Policies enforced by Sentinel
+- **Audit events**: submit, build, plan, apply
+- **Per-run audit logs**: `/tmp/porc-audit/{run_id}.log`
+- **Delivery metrics**: captured on `apply` into `/tmp/porc-metrics.jsonl`
+- Timestamps, blueprint metadata, workspace ID, and duration
 
----
+These support downstream observability and trend analysis.
 
-## Docs and References
+## Helm Deployment
 
-See the `/docs` folder for:
-- [PINE Usage Guide](docs/PINE%20Usage%20Guide.md)
-- [PINE CLI Reference](docs/PINE%20CLI%20Reference.md)
-- [Architecture](https://github.com/hyperfocus/porc/blob/main/docs/Architecture.md)
-- [API Reference](https://github.com/hyperfocus/porc/blob/main/docs/API.md)
-- [Development Status](docs/Development%20Status.md)
+See `DEPLOYMENT.md` for Kubernetes-based installation with external MongoDB support.

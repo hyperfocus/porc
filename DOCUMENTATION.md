@@ -31,3 +31,31 @@ This repository includes both API and CLI tools for orchestrating Terraform work
 ---
 
 > For internal use across CI/CD, platform tooling, and developer self-service pipelines at scale.
+
+
+## New API Routes
+
+### GET `/run/{run_id}/status`
+Returns lightweight status for polling or monitoring:
+```json
+{
+  "run_id": "run-abc123",
+  "status": "planned",
+  "last_updated": "2025-05-05T12:00:00Z"
+}
+```
+
+### GET `/run/{run_id}/summary`
+Returns full metadata for external portals:
+```json
+{
+  "run_id": "run-abc123",
+  "status": "applied",
+  "workspace_id": "ws-abc123",
+  "blueprint": "gke-cluster/1.0.0",
+  "repo_url": "...",
+  "outputs": { "cluster_name": "...", "region": "..." }
+}
+```
+
+This endpoint is intended for integration with systems like Port and Backstage.

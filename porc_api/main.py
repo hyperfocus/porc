@@ -1,3 +1,4 @@
+from porc_audit import log_event
 from fastapi import FastAPI, Request, Path
 from porc_core.render import render_blueprint
 import os
