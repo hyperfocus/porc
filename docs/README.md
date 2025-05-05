@@ -1,70 +1,61 @@
-![PORC Logo](logo.png)
+![PORC Logo](https://github.com/hyperfocus/porc/raw/main/logo.png)
 
-# PORC Documentation Index
+# PORC (Platform Orchestrator)
 
-Welcome to the documentation for **PORC** (Platform Orchestrator) and **PINE** (PORC Infrastructure Negotiation Engine).  
-This system enables Terraform-based paved paths with policy enforcement, approval control, and Port integration.
+PORC is a centralized Terraform orchestrator designed to standardize blueprint submission, validation, rendering, and execution across teams.
 
----
+## Features
 
-## Documentation Contents
+- CLI-driven lifecycle via PINE (`submit`, `build`, `plan`, `apply`)
+- Remote Terraform Enterprise (TFE) execution
+- Run metadata tracking and status reporting
+- Audit logging (per run)
+- External integration points for:
+  - Backstage (status-only)
+  - Port (catalog + status)
 
-### System Overview
-- [Architecture](https://github.com/hyperfocus/porc/blob/main/docs/Architecture.md) – Component breakdown, flowcharts, and storage model
-- [flowchart.mmd](flowchart.mmd) – Standalone Mermaid diagram source
+## Documentation
 
-### Core Interfaces
-- [API Reference](https://github.com/hyperfocus/porc/blob/main/docs/API.md) – REST API for blueprint processing, run orchestration, logging, and reporting
-- [PINE CLI Reference](https://github.com/hyperfocus/porc/blob/main/docs/PINE-CLI.md) – Command-line tool for blueprint validation and rendering
+- [Backstage Integration](docs/Backstage_Integration.md)
+- [Port Integration](docs/Port_Integration.md)
 
-### Policy, Compliance & Governance
-- [Blueprint Security Checks](https://github.com/hyperfocus/porc/blob/main/docs/Blueprint-Security.md) – Early validation rules applied by PINE
-- [Sentinel Policy Enforcement](https://github.com/hyperfocus/porc/blob/main/docs/Sentinel-Policies.md) – Remote Sentinel execution in TFE
-- [Approval & Change Control](https://github.com/hyperfocus/porc/blob/main/docs/Approvals.md) – ServiceNow integration and override rules
+## Audit & Observability
 
-### Integrations
-- [Port Sync Guide](https://github.com/hyperfocus/porc/blob/main/docs/Port-Sync.md) – How PORC syncs metadata to Port using Terraform provider
+Each run is logged to `/tmp/porc-audit/{run_id}.log`, including:
+- Submit, build, plan, apply actions
+- Timestamps and metadata
+- Placeholders for:
+  - DataDog telemetry
+  - Dynatrace event reporting
 
-### Metadata & Reports
-- [Metadata Spec](https://github.com/hyperfocus/porc/blob/main/docs/Metadata.md) – Format and fields used for PORC run tracking
-- [Report API](API.md#reporting) – View logs, run files, and status summaries
+## Folder Structure
 
----
-
-## Usage
-
-Documentation is stored in the `/docs` directory of this repo and can also be synced to the GitHub Wiki (if enabled).
-
-To regenerate the wiki:
-```bash
-gh workflow run sync-wiki.yml
+```
+porc_api/
+  main.py
+  porc_audit.py
+  ...
+docs/
+  Backstage_Integration.md
+  Port_Integration.md
 ```
 
----
+## Status Endpoints
 
-## Versioning
+- `GET /run/{run_id}/status` - lightweight polling status
+- `GET /run/{run_id}/summary` - full metadata for UI integrations
 
-Current version: `v1.0`  
-Last updated: May 2025
----
+## Audit & Metrics
 
-## Usage (Docker)
+PORC automatically logs:
 
-### Pull from GitHub Container Registry (GHCR)
-```bash
-docker pull ghcr.io/hyperfocus/porc:latest
-```
+- **Audit events**: submit, build, plan, apply
+- **Per-run audit logs**: `/tmp/porc-audit/{run_id}.log`
+- **Delivery metrics**: captured on `apply` into `/tmp/porc-metrics.jsonl`
+- Timestamps, blueprint metadata, workspace ID, and duration
 
-### Run PORC locally
-```bash
-docker run -d \
-  -p 8000:8000 \
-  --name porc \
-  -e ENV=dev \
-  ghcr.io/hyperfocus/porc:latest
-```
+These support downstream observability and trend analysis.
 
-### Test the API
-```bash
-curl http://localhost:8000/healthz
-```
+## Helm Deployment
+
+See `DEPLOYMENT.md` for Kubernetes-based installation with external MongoDB support.
