@@ -12,7 +12,7 @@ def lint(blueprint_path):
     if "kind" not in blueprint:
         errors.append("Missing 'kind' in blueprint")
     if "schema_version" not in blueprint:
-        errors.append("Missing 'schema_version' in blueprint")
+        errors.append("Missing schema_version in blueprint")
 
     if errors:
         print("Validation failed:")
