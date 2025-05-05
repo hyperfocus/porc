@@ -10,23 +10,23 @@ This system enables Terraform-based paved paths with policy enforcement, approva
 ## Documentation Contents
 
 ### System Overview
-- [Architecture](Architecture.md) – Component breakdown, flowcharts, and storage model
+- [Architecture](https://hyperfocus.github.io/porc/docs/Architecture) – Component breakdown, flowcharts, and storage model
 - [flowchart.mmd](flowchart.mmd) – Standalone Mermaid diagram source
 
 ### Core Interfaces
-- [API Reference](API.md) – REST API for blueprint processing, run orchestration, logging, and reporting
-- [PINE CLI Reference](PINE-CLI.md) – Command-line tool for blueprint validation and rendering
+- [API Reference](https://hyperfocus.github.io/porc/docs/API) – REST API for blueprint processing, run orchestration, logging, and reporting
+- [PINE CLI Reference](https://hyperfocus.github.io/porc/docs/PINE-CLI) – Command-line tool for blueprint validation and rendering
 
 ### Policy, Compliance & Governance
-- [Blueprint Security Checks](Blueprint-Security.md) – Early validation rules applied by PINE
-- [Sentinel Policy Enforcement](Sentinel-Policies.md) – Remote Sentinel execution in TFE
-- [Approval & Change Control](Approvals.md) – ServiceNow integration and override rules
+- [Blueprint Security Checks](https://hyperfocus.github.io/porc/docs/Blueprint-Security) – Early validation rules applied by PINE
+- [Sentinel Policy Enforcement](https://hyperfocus.github.io/porc/docs/Sentinel-Policies) – Remote Sentinel execution in TFE
+- [Approval & Change Control](https://hyperfocus.github.io/porc/docs/Approvals) – ServiceNow integration and override rules
 
 ### Integrations
-- [Port Sync Guide](Port-Sync.md) – How PORC syncs metadata to Port using Terraform provider
+- [Port Sync Guide](https://hyperfocus.github.io/porc/docs/Port-Sync) – How PORC syncs metadata to Port using Terraform provider
 
 ### Metadata & Reports
-- [Metadata Spec](Metadata.md) – Format and fields used for PORC run tracking
+- [Metadata Spec](https://hyperfocus.github.io/porc/docs/Metadata) – Format and fields used for PORC run tracking
 - [Report API](API.md#reporting) – View logs, run files, and status summaries
 
 ---

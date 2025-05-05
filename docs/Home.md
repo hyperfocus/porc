@@ -6,6 +6,6 @@ This wiki documents the usage, lifecycle, and architecture for the PORC Platform
 
 - [PINE Usage Guide](./PINE%20Usage%20Guide.md)
 - [PINE CLI Reference](./PINE%20CLI%20Reference.md)
-- [API Reference](./API.md)
-- [Architecture](./Architecture.md)
+- [API Reference](https://hyperfocus.github.io/porc/docs/API)
+- [Architecture](https://hyperfocus.github.io/porc/docs/Architecture)
 - [Development Status](./Development%20Status.md)
