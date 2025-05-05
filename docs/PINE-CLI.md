@@ -1,67 +1,84 @@
-# PINE CLI Reference
+# PINE CLI
 
-PINE (PORC Infrastructure Negotiation Engine) is the command-line tool for validating and rendering blueprints before they are handed off to PORC.
+Command-line interface for working with Terraform blueprints in the TD Delivery Platform.
 
 ---
-
-## Commands
 
 ### `pine lint <file>`
-Validates the input blueprint JSON against the schema registry.
 
-- **Input**: Path to blueprint JSON file
-- **Returns**: Success or schema validation errors
+Validates the provided blueprint against the associated JSON schema.
 
-#### Example
-```bash
-pine lint examples/my-blueprint.json
-```
+**Input**:
+- `<file>`: Path to the JSON blueprint (e.g., `examples/my-blueprint.json`)
 
----
-
-### `pine submit <file>`
-Submits blueprint to Port after validation (`main.tf`, `terraform.tfvars.json`) from blueprint.
-
-- **Input**: Path to blueprint file
-- **Flags**:
-  - `--out`: Optional flags for tagging or metadata
-- **Returns**: Renders files to specified directory
-
-#### Example
-```bash
-pine submit examples/gke-blueprint.json
-```
+**Returns**:
+- Prints schema validation results
+- Used for preflight checks and CI pipelines
 
 ---
 
 ### `pine validate <file>`
-(Planned) Blueprint validation beyond schema — e.g., logical integrity, naming, service-specific rules.
+
+**Planned:** Performs extended validation of a blueprint beyond schema compliance.
+
+**Input**:
+- `<file>`: Path to the JSON blueprint file
+
+**Planned Validation Scope**:
+- Schema compliance
+- Logical integrity (e.g., matching region + kind)
+- Naming conventions and required metadata
+- Service-specific rules (e.g., for GKE, PostgreSQL, etc.)
+- Security and compliance guardrails
 
 ---
 
-## Blueprint Format
+### `pine submit <file>`
 
-Blueprints must include:
-- `kind`: Resource type (e.g., `gke-cluster`)
-- `schema_version`: Matching schema in registry
-- `metadata`: Additional config (e.g., `repo`, `external_id`, `approval_required`)
-- `variables`: Key-value pairs to render
+Validates and submits a blueprint to the Port API to trigger the orchestration process.
+
+**Input**:
+- `<file>`: Path to the blueprint JSON
+
+**Flags**:
+- `--token <token>`: (Optional) API token for authenticating with Port
+- `--env <env>`: (Optional) Environment identifier (e.g., `dev`, `prod`)
+- `--external-id <id>`: (Optional) External run ID for traceability (e.g., GitHub Actions)
+
+**Behavior**:
+- Validates schema before sending
+- Submits blueprint to Port via webhook
+- Port routes to PORC for processing
 
 ---
 
-## Folder Structure
+### `pine build <file>`
 
-Schemas are stored in:
+**Planned:** Sends a validated blueprint to PORC for rendering Terraform configurations.
 
+**Input**:
+- `<file>`: Path to the blueprint JSON
+
+**Flags**:
+- `--dry-run`: (Optional) Validate and simulate rendering without committing
+
+**Behavior**:
+- Performs schema validation
+- (Planned) Requests a preview render from PORC (no apply)
+
+---
+
+### New Commands
+
+- `approve <blueprint_id>`: Approves a blueprint for apply.
+- `apply <blueprint_id>`: Applies a previously approved blueprint.
+
+### Authentication
+
+All commands that interact with the PORC API must set the environment variable:
+
+```bash
+export PORC_TOKEN=<your-access-token>
 ```
-pine/schemas/{kind}/{schema_version}.json
-```
 
-Blueprints must match a schema to pass linting.
-
----
-
-## Exit Codes
-
-- `0`: Success
-- `1`: Validation or rendering failure
+This token is passed to the API as a Bearer token via Authorization headers.

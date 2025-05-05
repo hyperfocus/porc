@@ -1,4 +1,18 @@
-from fastapi import FastAPI, Request, Path
+
+def verify_token(request: Request):
+    expected_token = os.getenv("PORC_AUTH_TOKEN")
+    auth_header = request.headers.get("Authorization")
+    if not expected_token or not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    token = auth_header.split(" ", 1)[1]
+    if token != expected_token:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+
+from fastapi import FastAPI, Request, Path, HTTPException, Depends
+
 from porc_core.render import render_blueprint
 import os
 import json
@@ -12,7 +26,7 @@ os.makedirs(DB_PATH, exist_ok=True)
 os.makedirs(RUNS_PATH, exist_ok=True)
 
 @app.post("/blueprint")
-async def submit_blueprint(request: Request):
+async def submit_blueprint(request: Request, _: None = Depends(verify_token)):
     blueprint = await request.json()
     run_id = f"porc-{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')[:-3]}"
     record = {
@@ -408,3 +422,33 @@ async def report_summary():
         "port_sync_failures": len(unsynced),
         "recent_runs": sorted(summaries, key=lambda x: x.get("plan_started") or "", reverse=True)[:5]
     }
+
+
+@app.post("/blueprints/{blueprint_id}/approve")
+async def approve_blueprint(blueprint_id: str, _: None = Depends(verify_token)):
+    record_path = f"{DB_PATH}/{blueprint_id}.json"
+    if not os.path.exists(record_path):
+        raise HTTPException(status_code=404, detail="Blueprint not found")
+    
+    with open(record_path) as f:
+        record = json.load(f)
+    record["status"] = "approved"
+    with open(record_path, "w") as f:
+        json.dump(record, f, indent=2)
+
+    return {"blueprint_id": blueprint_id, "status": "approved"}
+
+@app.post("/blueprints/{blueprint_id}/apply")
+async def apply_blueprint(blueprint_id: str, _: None = Depends(verify_token)):
+    record_path = f"{DB_PATH}/{blueprint_id}.json"
+    if not os.path.exists(record_path):
+        raise HTTPException(status_code=404, detail="Blueprint not found")
+    
+    with open(record_path) as f:
+        record = json.load(f)
+    record["status"] = "applied"
+    record["applied_at"] = datetime.utcnow().isoformat()
+    with open(record_path, "w") as f:
+        json.dump(record, f, indent=2)
+
+    return {"blueprint_id": blueprint_id, "status": "applied"}

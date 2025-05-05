@@ -69,3 +69,20 @@ Returns a high-level rollup of recent run activity (last 5 runs, failure counts,
   - `/tmp/porc-logs/`
   - `/tmp/porc-runs/`
 - A remote Mongo or DB backend can be added later.
+
+### New Endpoints
+
+- `POST /blueprints/{blueprint_id}/approve`  
+  Marks a submitted blueprint as approved. Requires Bearer token in Authorization header.
+
+- `POST /blueprints/{blueprint_id}/apply`  
+  Applies the approved blueprint. Also requires Bearer token.
+
+### Authentication
+
+All protected API endpoints require a header:
+```
+Authorization: Bearer <token>
+```
+
+The expected token must match the value of the environment variable `PORC_AUTH_TOKEN`.

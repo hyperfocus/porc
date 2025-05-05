@@ -18,3 +18,5 @@ PORC enforces that a valid `plan` must run before any `apply` operation. This in
 
 - If `plan_status` != 'success' → reject apply
 - If `approval_required` = true → block until `approval_record` is present and validated
+
+Note: Approval and apply steps are now enforced via token-authenticated endpoints.

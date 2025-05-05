@@ -28,3 +28,5 @@ This document explains how Terraform infrastructure is rendered, planned, and ap
 | Approval     | PORC          | ServiceNow / Mongo | GitHub PR review       |
 | Apply        | GitHub / PORC | GitHub / Mongo     | Terraform UI button    |
 | Policies     | Terraform     | TFE Sentinel logs  | None                   |
+
+Note: Approval and apply steps are now enforced via token-authenticated endpoints.

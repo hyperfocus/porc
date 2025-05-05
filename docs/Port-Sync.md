@@ -72,3 +72,5 @@ These are injected from `port_notify.tfvars.json`:
 - Support delta updates or patching Port entities
 - Link run to blueprint automatically using relations
 - Use Port SDK or GraphQL API instead of TF provider
+
+Note: All submission calls to PORC are now protected by authentication headers.
