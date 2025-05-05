@@ -1,0 +1,46 @@
+name: Deploy PORC to AKS
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  ACR_NAME: porcupine
+  RESOURCE_GROUP: <your-resource-group>
+  CLUSTER_NAME: <your-aks-cluster-name>
+  IMAGE_NAME: porc
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set AKS Context
+        run: |
+          az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME
+
+      - name: Log in to ACR
+        run: |
+          az acr login --name $ACR_NAME
+
+      - name: Build and Push Docker Image
+        run: |
+          docker build -t $ACR_NAME.azurecr.io/$IMAGE_NAME:latest .
+          docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:latest
+
+      - name: Create ACR Image Pull Secret
+        run: |
+          kubectl create secret docker-registry acr-creds             --docker-server=$ACR_NAME.azurecr.io             --docker-username=${{ secrets.ACR_USERNAME }}             --docker-password=${{ secrets.ACR_PASSWORD }}             --docker-email=devops@example.com             --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy to AKS via Helm
+        run: |
+          helm upgrade --install porc ./porc-helm -f ./values-final.yaml
