@@ -1,4 +1,4 @@
-replicaCount: 1
+⁷replicaCount: 1
 
 image:
   repository: porcupine.azurecr.io/porc
@@ -36,7 +36,3 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
-  tls:
-    - secretName: porc-tls
-      hosts:
-        - porc.example.com
