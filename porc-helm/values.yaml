@@ -35,7 +35,7 @@ ingress:
     - host: porc.example.com
       paths:
         - path: /
-          pathType: ImplementationSpecific
+          pathType: Prefix
   tls:
     - secretName: porc-tls
       hosts:
