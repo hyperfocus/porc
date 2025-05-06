@@ -1,9 +1,8 @@
-![PORC Logo](logo.png)
-
 # PORC Documentation
 
 Welcome to the PORC (Platform Orchestrator) documentation site. This directory contains all supporting markdown files for integrations, architecture, and usage guidance.
-# Index
+
+## Index
 
 - [Backstage Integration](Backstage_Integration.md)
 - [Port Integration](Port_Integration.md)

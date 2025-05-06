@@ -11,22 +11,17 @@ imagePullSecrets:
 mongo:
   uri: "mongodb://porcmongo.mongocluster.cosmos.azure.com:27017/porc"
 
-env:
-  TFE_TOKEN: ""
-  TFE_HOST: "https://app.terraform.io/api/v2"
-  TFE_ORG: "td-organization"
-
 service:
   type: ClusterIP
   port: 80
 
-ingress:
-  enabled: false
-
 resources:
   limits:
-    cpu: 500m
+    cpu: 250m
     memory: 512Mi
   requests:
-    cpu: 250m
+    cpu: 100m
     memory: 256Mi
+
+ingress:
+  enabled: false

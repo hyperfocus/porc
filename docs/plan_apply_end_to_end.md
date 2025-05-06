@@ -1,13 +1,15 @@
 # End-to-End Terraform Plan & Apply Flow with PORC + GitHub
 
 This document explains how Terraform infrastructure is rendered, planned, and applied using a hybrid approach that includes PORC, GitHub Actions, and Terraform Enterprise.
-# Overview
+
+## Overview
 
 - **PORC** renders Terraform configurations from a blueprint
 - **GitHub Actions** optionally execute `terraform plan` and `terraform apply`
 - **Terraform Enterprise** stores the remote workspace, state, and executes runs
 - **Approval flow** is controlled by PORC, optionally requiring change record validation (e.g., ServiceNow)
-# Step-by-Step Flow
+
+## Step-by-Step Flow
 
 1. Blueprint submitted via GitHub or Port webhook
 2. PORC validates blueprint and generates `.tf` and `.tfvars.json`
@@ -16,7 +18,8 @@ This document explains how Terraform infrastructure is rendered, planned, and ap
 5. GitHub or PORC triggers `apply` if plan was successful
 6. Sentinel policies run automatically in TFE
 7. Results are logged, monitored, and auditable
-# Decision Matrix
+
+## Decision Matrix
 
 | Step         | Controlled By | Audit Location     | Alternate Option       |
 |--------------|---------------|--------------------|------------------------|
@@ -25,7 +28,8 @@ This document explains how Terraform infrastructure is rendered, planned, and ap
 | Approval     | PORC          | ServiceNow / Mongo | GitHub PR review       |
 | Apply        | GitHub / PORC | GitHub / Mongo     | Terraform UI button    |
 | Policies     | Terraform     | TFE Sentinel logs  | None                   |
-# Blueprint Lifecycle (PORC and TFE)
+
+### Blueprint Lifecycle (PORC and TFE)
 
 1. `pine submit` → sends blueprint to PORC
 2. `pine build` → PORC renders templates and uploads to TFE as config version

@@ -2,7 +2,8 @@ name: Sync Wiki
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - 'docs/**'
       - '.github/workflows/wiki-sync.yml'
@@ -14,19 +15,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Clone wiki repo using GITHUB_TOKEN
+      - name: Clone wiki repo with token
         run: |
-          git config --global user.name "${{ github.actor }}"
-          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
           git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git wiki
 
-      - name: Copy updated docs into wiki
+      - name: Copy docs to wiki
         run: |
-          rsync -av --delete --exclude='.DS_Store' --exclude='.git' docs/ wiki/
+          cp docs/*.{md,png} wiki/
 
       - name: Commit and push to wiki
         run: |
           cd wiki
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          git commit -m "Sync from docs at ${{ github.sha }} by ${{ github.actor }}" || echo "Nothing to commit"
+          git commit -m "Sync docs to wiki [automated]" || echo "No changes to commit"
           git push

@@ -3,7 +3,8 @@
 PINE supports early-stage security checks on blueprints before they are submitted to Port or rendered by PORC. These checks enforce compliance, policy alignment, and platform contract rules.
 
 ---
-# Purpose
+
+## Purpose
 
 Blueprint security validation ensures that infrastructure requests:
 - Conform to platform expectations
@@ -11,11 +12,14 @@ Blueprint security validation ensures that infrastructure requests:
 - Avoid misconfiguration or risky defaults
 
 ---
-# What PINE Validates
-# 1. **Schema Validation**
+
+## What PINE Validates
+
+### 1. **Schema Validation**
 - Checks `kind`, `schema_version`, and field presence
 - Ensures blueprint matches the defined contract
-# 2. **Custom Rule Checks**
+
+### 2. **Custom Rule Checks**
 These are loaded from rulesets (JSON or hardcoded logic) and include:
 
 | Rule Type            | Example                              |
@@ -27,7 +31,8 @@ These are loaded from rulesets (JSON or hardcoded logic) and include:
 | Naming patterns      | `repo` must match `[a-z0-9-]+`       |
 
 ---
-# Example Rule (JSON)
+
+## Example Rule (JSON)
 
 ```json
 {
@@ -45,7 +50,8 @@ These are loaded from rulesets (JSON or hardcoded logic) and include:
 ```
 
 ---
-# Future Enhancements
+
+## Future Enhancements
 
 - Rule registry per `kind` or `platform`
 - GitHub annotations for violations
@@ -53,7 +59,8 @@ These are loaded from rulesets (JSON or hardcoded logic) and include:
 - Auto-fix suggestions for known issues
 
 ---
-# Limitations
+
+## Limitations
 
 - **Does not scan Terraform**
 - **Does not replace Sentinel**

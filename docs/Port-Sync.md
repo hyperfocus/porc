@@ -3,7 +3,8 @@
 PORC supports syncing run metadata and status back to [Port](https://www.getport.io/) using the official Port Terraform provider.
 
 ---
-# Purpose
+
+## Purpose
 
 Syncing to Port allows:
 - Centralized visibility of infrastructure changes
@@ -11,7 +12,8 @@ Syncing to Port allows:
 - Integration with Port scorecards, insights, and dashboards
 
 ---
-# Provider Configuration
+
+## Provider Configuration
 
 PORC auto-generates the following Terraform file during sync:
 
@@ -32,7 +34,8 @@ resource "port_entity" "porc_run" {
   }
 }
 ```
-# Variables
+
+### Variables
 
 These are injected from `port_notify.tfvars.json`:
 
@@ -48,20 +51,23 @@ These are injected from `port_notify.tfvars.json`:
 ```
 
 ---
-# Run Flow
+
+## Run Flow
 
 1. Run is executed and recorded in PORC
 2. PORC builds and applies a Terraform configuration that posts the status to Port
 3. Result is logged and stored for audit
 
 ---
-# Requirements
+
+## Requirements
 
 - Port blueprint called `porc_run` must exist
 - `PORT_CLIENT_ID` and `PORT_CLIENT_SECRET` must be set in environment
 
 ---
-# Future Improvements
+
+## Future Improvements
 
 - Support delta updates or patching Port entities
 - Link run to blueprint automatically using relations

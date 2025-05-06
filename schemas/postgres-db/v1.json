@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "db_name",
+    "db_user",
+    "plan"
+  ],
+  "properties": {
+    "db_name": {
+      "type": "string"
+    },
+    "db_user": {
+      "type": "string"
+    },
+    "plan": {
+      "type": "string",
+      "enum": [
+        "basic",
+        "standard",
+        "enterprise"
+      ]
+    }
+  }
+}

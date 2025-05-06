@@ -3,7 +3,8 @@
 PORC supports integration with enterprise change management systems like ServiceNow to enforce approval gates before infrastructure is applied.
 
 ---
-# Overview
+
+## Overview
 
 When a blueprint requires change control, PORC enforces it by:
 
@@ -12,7 +13,8 @@ When a blueprint requires change control, PORC enforces it by:
 3. Blocking execution unless the change is approved or an override is requested.
 
 ---
-# Blueprint Flag
+
+## Blueprint Flag
 
 In the blueprint:
 
@@ -24,7 +26,8 @@ In the blueprint:
 ```
 
 ---
-# Approval Metadata
+
+## Approval Metadata
 
 After validation, PORC adds this to metadata:
 
@@ -37,14 +40,16 @@ After validation, PORC adds this to metadata:
 ```
 
 ---
-# Validation Process
+
+## Validation Process
 
 - PORC queries the ServiceNow API for the change ID.
 - It ensures the record is in an `implement` or `scheduled` state.
 - If not valid, `apply` is blocked unless manually overridden.
 
 ---
-# Override Logic
+
+## Override Logic
 
 If an override is requested:
 
@@ -53,7 +58,8 @@ If an override is requested:
 - This is tracked in logs and reports for audit
 
 ---
-# Future Features
+
+## Future Features
 
 - Audit log export to SIEM
 - Emergency change workflow

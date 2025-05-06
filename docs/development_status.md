@@ -11,7 +11,8 @@ _No existing status content found._
 This document outlines the major deliverables and architectural changes developed during the PORC + PINE orchestration session.
 
 ---
-# Core CLI and API Design
+
+## Core CLI and API Design
 
 **PINE CLI Commands**  
 - `pine submit`: Uploads blueprint metadata to PORC  
@@ -29,14 +30,16 @@ This document outlines the major deliverables and architectural changes develope
 - `GET /run/{run_id}/summary`: Returns full metadata for integrations
 
 ---
-# Logging, Metrics, and Observability
+
+## Logging, Metrics, and Observability
 
 - `porc_audit.py`: Logs each action to `/tmp/porc-audit/{run_id}.log`
 - `porc_metrics.py`: Captures delivery metrics to `/tmp/porc-metrics.jsonl`
 - Placeholders added for DataDog and Dynatrace integrations
 
 ---
-# Documentation Delivered
+
+## Documentation Delivered
 
 - `README.md`: Root file with overview, logo, CLI, metrics, and Helm
 - `DEPLOYMENT.md`: Instructions for local, Docker, and Helm
@@ -47,7 +50,8 @@ This document outlines the major deliverables and architectural changes develope
   - `docs/Port_Integration.md`
 
 ---
-# Kubernetes & Helm Deployment
+
+## Kubernetes & Helm Deployment
 
 - Full Helm chart scaffold:
   - External MongoDB configured via `values.yaml`
@@ -56,7 +60,8 @@ This document outlines the major deliverables and architectural changes develope
 - Environment variable injection via ConfigMap
 
 ---
-# UX and Branding
+
+## UX and Branding
 
 - PORC logo finalized with circuit-quill theme
 - Transparent background, TD-compliant green palette
@@ -65,7 +70,8 @@ This document outlines the major deliverables and architectural changes develope
 - All internal `.md` links converted to full GitHub blob URLs
 
 ---
-# Final Outputs
+
+## Final Outputs
 
 - `porc-platform-orchestrator-final-bloblinks.zip`: Complete, branded, production-ready repo
 - Helm chart in `/porc-helm/`
@@ -74,7 +80,8 @@ This document outlines the major deliverables and architectural changes develope
 - MongoDB connection externalized
 
 ---
-# Next Steps (Optional)
+
+## Next Steps (Optional)
 
 - Push repo to GitHub under `hyperfocus/porc`
 - Tag a release (e.g. `v1.0.0`)

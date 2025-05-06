@@ -3,15 +3,18 @@
 This document describes how the Port developer portal integrates with the PORC orchestrator to provide infrastructure visibility, blueprint cataloging, and run-time status tracking.
 
 ---
-# Key Concepts
-# 1. Blueprint Catalog (Design-Time)
+
+## Key Concepts
+
+### 1. Blueprint Catalog (Design-Time)
 
 Port maintains a list of **available blueprints** defined and approved by the platform team.
 
 - **Entity kind**: `blueprint_template`
 - Synced from GitHub or internal registry
 - Represents a reusable Terraform module with metadata
-# Example Blueprint Template Entity
+
+#### Example Blueprint Template Entity
 
 ```json
 {
@@ -28,14 +31,16 @@ Port maintains a list of **available blueprints** defined and approved by the pl
 ```
 
 ---
-# 2. Blueprint Instances (Run-Time)
+
+### 2. Blueprint Instances (Run-Time)
 
 Every time a blueprint is rendered, planned, or applied by PORC, a **blueprint_instance** entity is created or updated in Port.
 
 - **Entity kind**: `blueprint_instance`
 - Linked to blueprint_template
 - Updated by PORC during `submit`, `plan`, `apply`
-# Example Blueprint Instance Entity
+
+#### Example Blueprint Instance Entity
 
 ```json
 {
@@ -54,7 +59,8 @@ Every time a blueprint is rendered, planned, or applied by PORC, a **blueprint_i
 ```
 
 ---
-# Execution Flow
+
+## Execution Flow
 
 | PORC Event    | Port Update                     |
 |---------------|----------------------------------|
@@ -64,7 +70,8 @@ Every time a blueprint is rendered, planned, or applied by PORC, a **blueprint_i
 | `pine apply`  | Set `terraform_status = applied` |
 
 ---
-# Port API Reference
+
+## Port API Reference
 
 To create or update an entity:
 
@@ -87,7 +94,8 @@ To update status:
 ```
 
 ---
-# Optional: Define Actions in Port
+
+## Optional: Define Actions in Port
 
 Port supports actions like "Re-run plan", "Apply now" — these can trigger PORC endpoints, e.g.:
 
@@ -99,7 +107,8 @@ Authorization: Bearer <token>
 Use this to expose PORC-triggered workflows in the Port UI while keeping source of truth in PORC.
 
 ---
-# Summary
+
+## Summary
 
 - PORC remains the executor and validator
 - Port is the live registry for both blueprint definitions and deployed infra
@@ -107,7 +116,8 @@ Use this to expose PORC-triggered workflows in the Port UI while keeping source 
 - Status is passively updated via API by PORC
 
 ---
-# Notes on Integration
+
+## Notes on Integration
 
 Port/Backstage should consume data via:
 
