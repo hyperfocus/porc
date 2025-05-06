@@ -7,6 +7,8 @@ SCHEMA_DIR = Path(__file__).parent / "schemas"
 
 
 def lint(blueprint_path):
+
+
     with open(blueprint_path) as f:
         blueprint = json.load(f)
 
@@ -37,6 +39,8 @@ if __name__ == "__main__":
 
 
 def validate(blueprint_path):
+
+
     print("[validate] Starting extended blueprint validation...")
     with open(blueprint_path) as f:
         blueprint = json.load(f)
@@ -58,6 +62,8 @@ def validate(blueprint_path):
 
 
 def build(blueprint_path):
+
+
     print("[build] Validating and submitting blueprint for render preview...")
     validate(blueprint_path)
     with open(blueprint_path) as f:
