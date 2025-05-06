@@ -42,9 +42,6 @@ jobs:
 
       - name: Commit and Push Chart Version Bump
         run: |
-          git stash
-          git rebase
-          git stash pop
           git add porc-helm/Chart.yaml
           git commit -m "ci: bump chart version to ${CHART_VERSION}" || echo "No changes to commit"
           git push
@@ -87,12 +84,9 @@ jobs:
         run: |
           kubectl create secret docker-registry acr-creds             --docker-server=$ACR_NAME.azurecr.io             --docker-username=${{ secrets.ACR_USERNAME }}             --docker-password=${{ secrets.ACR_PASSWORD }}             --docker-email=devops@example.com             --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Create TFE Secret in Kubernetes
-        run: |
-          kubectl create secret generic tfe-secrets \
-            --from-literal=TFE_TOKEN="${{ secrets.TFE_TOKEN }}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-
       - name: Deploy to AKS via Helm
         run: |
-          helm upgrade --install porc ./porc-helm             --set image.repository=$ACR_NAME.azurecr.io/$IMAGE_NAME             --set image.tag=${VERSION_TAG}             -f ./values-final.yaml
+          helm upgrade --install porc ./porc-helm \
+            --set image.repository=$ACR_NAME.azurecr.io/$IMAGE_NAME \
+            --set image.tag=${VERSION_TAG} \
+            -f porc-helm/values.yaml
