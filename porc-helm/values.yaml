@@ -29,7 +29,7 @@ resources:
 
 ingress:
   enabled: true
-  className: "azure-application-gateway"
+  className: "nginx"
   annotations: {}
   hosts:
     - host: porc.example.com
