@@ -42,7 +42,9 @@ jobs:
 
       - name: Commit and Push Chart Version Bump
         run: |
+          git stash
           git rebase
+          git stash pop
           git add porc-helm/Chart.yaml
           git commit -m "ci: bump chart version to ${CHART_VERSION}" || echo "No changes to commit"
           git push
