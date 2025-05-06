@@ -86,13 +86,13 @@ async def run_plan(run_id: str = Path(...)):
         return {"error": str(e)}
 
     from porc_core.github_checks import post_check
-external_id = data["blueprint"].get("metadata", {}).get("external_id", "")
-post_check(run_id, external_id, "PORC Plan", "success", "Terraform plan was queued successfully.")
-data["status"] = "plan_queued"
-data["plan_started"] = datetime.utcnow().isoformat()
-data["tfe_run_id"] = tfe_run_id
+    external_id = data["blueprint"].get("metadata", {}).get("external_id", "")
+    post_check(run_id, external_id, "PORC Plan", "success", "Terraform plan was queued successfully.")
+    data["status"] = "plan_queued"
+    data["plan_started"] = datetime.utcnow().isoformat()
+    data["tfe_run_id"] = tfe_run_id
 
-with open(meta_file, "w") as f:
+    with open(meta_file, "w") as f:
         json.dump(data, f, indent=2)
 
     return {"run_id": run_id, "tfe_run_id": tfe_run_id, "status": "plan_queued"}

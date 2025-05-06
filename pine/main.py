@@ -38,8 +38,6 @@ if __name__ == "__main__":
 
 
 def validate(blueprint_path):
-
-
     print("[validate] Starting extended blueprint validation...")
     with open(blueprint_path) as f:
         blueprint = json.load(f)
