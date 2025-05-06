@@ -1,5 +1,10 @@
 replicaCount: 1
-
+env:
+  - name: TFE_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: tfe-secrets
+        key: TFE_TOKEN
 image:
   repository: porcupine.azurecr.io/porc
   tag: latest
