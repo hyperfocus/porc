@@ -1,6 +1,5 @@
 import requests
 import os
-import json
 
 TFE_TOKEN = os.getenv("TFE_TOKEN")
 TFE_ORG = "td-organization"
@@ -55,7 +54,6 @@ def trigger_plan_run(workspace_id, config_id):
     r = requests.post(url, headers=headers, json=payload)
     r.raise_for_status()
     return r.json()["data"]["id"]
-
 
 
 def upload_tarball(upload_url, directory):

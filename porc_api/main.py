@@ -89,7 +89,7 @@ async def run_plan(run_id: str = Path(...)):
 external_id = data["blueprint"].get("metadata", {}).get("external_id", "")
 post_check(run_id, external_id, "PORC Plan", "success", "Terraform plan was queued successfully.")
 data["status"] = "plan_queued"
-    data["plan_started"] = datetime.utcnow().isoformat()
+data["plan_started"] = datetime.utcnow().isoformat()
     data["tfe_run_id"] = tfe_run_id
 
     with open(meta_file, "w") as f:
