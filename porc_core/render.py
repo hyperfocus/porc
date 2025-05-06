@@ -1,5 +1,5 @@
 """
-PORC Error Classes: Custom exceptions for the PORC system.
+PORC Core Render: Blueprint rendering stub for PORC system.
 """
 import logging
 import sys
@@ -21,15 +21,8 @@ handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(JsonFormatter())
 logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
 
-class PORCError(Exception):
-    """Base exception for all PORC errors."""
-    pass
-
-class ValidationError(PORCError):
-    """Raised when validation of input or data fails."""
-    pass
-
-class TFEServiceError(PORCError):
-    """Raised when a Terraform Enterprise API call fails."""
-    def __init__(self, status_code, message):
-        super().__init__(f"TFE API Error ({status_code}): {message}")
+def render_blueprint(blueprint):
+    """Stub for rendering a blueprint into files. TODO: Implement actual rendering logic."""
+    # Return a dict of filename: content as a placeholder
+    logging.info("Rendering blueprint (stub)")
+    return {"main.tf": "# TODO: Rendered Terraform code goes here"} 
