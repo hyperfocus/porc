@@ -1,6 +1,0 @@
-fastapi
-uvicorn[standard]
-pydantic
-jinja2
-python-dotenv
-requests

@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "porc.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "porc.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "porc.name" . }}
+    spec:
+      containers:
+        - name: porc
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: MONGO_URI
+              value: {{ .Values.mongo.uri | quote }}
+            - name: TFE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: porc-secrets
+                  key: TFE_TOKEN
+            - name: TFE_HOST
+              value: {{ .Values.env.TFE_HOST | quote }}
+            - name: TFE_ORG
+              value: {{ .Values.env.TFE_ORG | quote }}
+          ports:
+            - containerPort: 8000
+          command: ["/entrypoint.sh", "api"]

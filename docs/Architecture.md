@@ -3,8 +3,7 @@
 This document describes the architecture of the PORC platform orchestrator and how its components interact.
 
 ---
-
-## Overview
+# Overview
 
 PORC consists of:
 
@@ -15,8 +14,7 @@ PORC consists of:
 - **GitHub**: CI/CD workflow trigger and feedback loop
 
 ---
-
-## Mermaid Flow Diagram (Corrected)
+# Mermaid Flow Diagram (Corrected)
 
 ```mermaid
 flowchart LR
@@ -54,43 +52,35 @@ Developer --> GitHub Repo --> Port Blueprint --> [Kafka or Webhook]
 ```
 
 ---
-
-## Key Flows
-
-### Blueprint Ingestion
+# Key Flows
+# Blueprint Ingestion
 - Blueprint submitted from GitHub or Port
 - Stored locally by PORC and assigned a `run_id`
-
-### Rendering
+# Rendering
 - PINE is used to validate blueprint schema and submit it to Port
 - Output files: `main.tf`, `terraform.tfvars.json`
-
-### Execution
+# Execution
 - PORC pushes files to Terraform Enterprise using remote workspaces
 - Sentinel enforces policy before apply
-
-### Reporting
+# Reporting
 - Status synced back to Port via Terraform provider
 - GitHub Check Runs posted using commit SHA
 - Logs written locally and exposed via `/logs` and `/report`
 
 ---
-
-## Persistence and State
+# Persistence and State
 
 - Metadata: `/tmp/porc-metadata/{run_id}.json`
 - Rendered files: `/tmp/porc-runs/{run_id}/`
 - Logs: `/tmp/porc-logs/{run_id}.log.jsonl`
 
 ---
-
-## Future Enhancements
+# Future Enhancements
 
 - Replace FS with MongoDB or Postgres
 - Replace Kafka/Webhooks with unified pub/sub event layer
 - Add UI for reviewing plan/apply output and history
-
-### Client–Server Design
+# Client–Server Design
 
 - **PINE CLI**: Local developer interface (submit, build, plan, apply)
 - **PORC API**: Validates blueprints, renders Terraform, interacts with TFE

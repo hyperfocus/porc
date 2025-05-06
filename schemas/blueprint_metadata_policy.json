@@ -1,7 +1,0 @@
-{
-  "kind": "required",
-  "schema_version": "required",
-  "owner": "required",
-  "approval_required": "required",
-  "change_record": "required_if:approval_required=true"
-}

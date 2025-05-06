@@ -3,8 +3,7 @@
 This document outlines the structure and meaning of fields in the `run_id.json` files stored in `/tmp/porc-metadata`.
 
 ---
-
-## Top-Level Fields
+# Top-Level Fields
 
 | Field            | Type     | Description |
 |------------------|----------|-------------|
@@ -16,8 +15,7 @@ This document outlines the structure and meaning of fields in the `run_id.json` 
 | `last_sync_time` | `string` | ISO 8601 timestamp when Port sync last occurred |
 
 ---
-
-## Blueprint
+# Blueprint
 
 The original user-submitted blueprint JSON. Common fields include:
 
@@ -30,8 +28,7 @@ The original user-submitted blueprint JSON. Common fields include:
 | `metadata.approval_required` | `boolean` | If ServiceNow approval is required |
 
 ---
-
-## Approval (Optional)
+# Approval (Optional)
 
 Present if `approval_required` is `true`.
 
@@ -42,8 +39,7 @@ Present if `approval_required` is `true`.
 | `override`      | `bool`   | Was manual override used? |
 
 ---
-
-## Example
+# Example
 
 ```json
 {

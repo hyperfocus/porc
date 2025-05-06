@@ -3,14 +3,11 @@
 This document describes how to deploy and operate the PORC orchestrator service in both development and production environments.
 
 ---
-
-## Local Development
-
-### Prerequisites
+# Local Development
+# Prerequisites
 - Python 3.9+
 - `uvicorn`, `fastapi`, `httpx`, and other dependencies
-
-### Run Locally
+# Run Locally
 ```bash
 pip install -r requirements.txt
 uvicorn porc_api.main:app --reload
@@ -24,18 +21,15 @@ Logs and audit files are written to:
 - `/tmp/porc-metadata/{run_id}.json`
 
 ---
-
-## Production Deployment
-
-### Option 1: Gunicorn + Uvicorn Workers
+# Production Deployment
+# Option 1: Gunicorn + Uvicorn Workers
 ```bash
 pip install gunicorn uvicorn
 gunicorn porc_api.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8080
 ```
 
 Use systemd or supervisord to keep the service running.
-
-### Option 2: Docker (Recommended)
+# Option 2: Docker (Recommended)
 ```Dockerfile
 FROM python:3.10-slim
 WORKDIR /app
@@ -51,8 +45,7 @@ docker run -d -p 8080:8080 porc
 ```
 
 ---
-
-## Logging and Telemetry
+# Logging and Telemetry
 
 - **Audit logs**: `/tmp/porc-audit/`
 - **Metrics log**: `/tmp/porc-metrics.jsonl`
@@ -60,8 +53,7 @@ docker run -d -p 8080:8080 porc
 - **Placeholders**: Integration points exist for DataDog, Dynatrace
 
 ---
-
-## External Access
+# External Access
 
 Use a reverse proxy (e.g. nginx, envoy) in front of the FastAPI app for:
 - HTTPS termination
@@ -69,8 +61,7 @@ Use a reverse proxy (e.g. nginx, envoy) in front of the FastAPI app for:
 - Rate limiting
 
 ---
-
-## Health Check (Optional)
+# Health Check (Optional)
 Add a basic `/health` endpoint to `main.py`:
 ```python
 @app.get("/health")
@@ -79,18 +70,15 @@ def health():
 ```
 
 ---
-
-## Kubernetes Deployment with Helm
+# Kubernetes Deployment with Helm
 
 PORC is also deployable via a Helm chart.
-
-### Prerequisites
+# Prerequisites
 
 - Kubernetes cluster access
 - `helm` CLI installed
 - A MongoDB service accessible from the cluster
-
-### MongoDB Configuration
+# MongoDB Configuration
 
 You must configure an external MongoDB instance and provide the connection string:
 
@@ -100,8 +88,7 @@ mongo:
 ```
 
 This URI will be injected as the `MONGO_URI` environment variable.
-
-### Install the Chart
+# Install the Chart
 
 ```bash
 helm install porc ./porc-helm   --set mongo.uri="mongodb://mongo.td.internal:27017/porc"
@@ -113,4 +100,3 @@ This will deploy:
 - `MONGO_URI` via ConfigMap
 
 To expose via Ingress, uncomment and configure the `ingress.yaml` template.
-

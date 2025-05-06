@@ -1,4 +1,0 @@
-[tool.poetry]
-name = "porc"
-version = "0.1.0"
-description = "Platform Orchestrator + CLI"

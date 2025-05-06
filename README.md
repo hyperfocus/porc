@@ -1,61 +1,33 @@
-![PORC Logo](https://github.com/hyperfocus/porc/raw/main/logo.png)
-
 # PORC (Platform Orchestrator)
 
-PORC is a centralized Terraform orchestrator designed to standardize blueprint submission, validation, rendering, and execution across teams.
+PORC is a centralized orchestrator for Terraform blueprints, designed to automate lifecycle execution across teams via GitOps or API control.
 
-## Features
+## Key Components
 
-- CLI-driven lifecycle via PINE (`submit`, `build`, `plan`, `apply`)
-- Remote Terraform Enterprise (TFE) execution
-- Run metadata tracking and status reporting
-- Audit logging (per run)
-- External integration points for:
-  - Backstage (status-only)
-  - Port (catalog + status)
+- **API (`porc_api`)** – FastAPI endpoints to submit, render, plan, and apply blueprints
+- **Worker (`porc_worker`)** – Polls and monitors run status or events
+- **CLI (`pine`)** – Optional tool for validating blueprints offline
+- **Core (`porc_core`)** – Encapsulates logic for rendering and Terraform Enterprise (TFE) integration
+- **Common (`porc_common`)** – Shared config and error handling
 
-## Documentation
+## API Endpoints
 
-- [Backstage Integration](https://github.com/hyperfocus/porc/blob/main/docs/Backstage_Integration.md)
-- [Port Integration](https://github.com/hyperfocus/porc/blob/main/docs/Port_Integration.md)
+See: [API Docs](api.md) or visit `/docs` after launching the server
 
-## Audit & Observability
+## Deployment
 
-Each run is logged to `/tmp/porc-audit/{run_id}.log`, including:
-- Submit, build, plan, apply actions
-- Timestamps and metadata
-- Placeholders for:
-  - DataDog telemetry
-  - Dynatrace event reporting
+Run in AKS via:
 
-## Folder Structure
-
-```
-porc_api/
-  main.py
-  porc_audit.py
-  ...
-docs/
-  Backstage_Integration.md
-  Port_Integration.md
+```bash
+docker run -e TFE_TOKEN=xxx -p 8000:8000 porc:latest api
 ```
 
-## Status Endpoints
+Or launch the worker:
 
-- `GET /run/{run_id}/status` - lightweight polling status
-- `GET /run/{run_id}/summary` - full metadata for UI integrations
+```bash
+docker run -e TFE_TOKEN=xxx porc:latest worker
+```
 
-## Audit & Metrics
+## Flowchart
 
-PORC automatically logs:
-
-- **Audit events**: submit, build, plan, apply
-- **Per-run audit logs**: `/tmp/porc-audit/{run_id}.log`
-- **Delivery metrics**: captured on `apply` into `/tmp/porc-metrics.jsonl`
-- Timestamps, blueprint metadata, workspace ID, and duration
-
-These support downstream observability and trend analysis.
-
-## Helm Deployment
-
-See `DEPLOYMENT.md` for Kubernetes-based installation with external MongoDB support.
+See [flowchart.mmd](flowchart.mmd) for lifecycle visual.

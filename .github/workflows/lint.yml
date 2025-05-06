@@ -41,7 +41,7 @@ jobs:
 
       - name: Apply Ruff fixes
         run: |
-          ruff fix .
+          ruff check --select I --fix .
 
       - name: Run Flake8
         run: |
