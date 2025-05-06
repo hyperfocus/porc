@@ -30,6 +30,8 @@ jobs:
           pip install pytest httpx pytest-asyncio
 
       - name: Run tests against public endpoint
+        env:
+          TFE_TOKEN: ${{ secrets.TFE_TOKEN }}
         run: |
           pytest \
             --base-url=${{ secrets.API_BASE_URL }} \
