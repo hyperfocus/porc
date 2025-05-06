@@ -10,8 +10,14 @@ from fastapi import FastAPI, Request, Path
 from pydantic import BaseModel
 from porc_common.config import DB_PATH
 from porc_core.render import render_blueprint
+from motor.motor_asyncio import AsyncIOMotorClient
 
 app = FastAPI(title="PORC API")
+
+# MongoDB setup
+MONGO_URI = os.getenv("MONGO_URI")
+mongo_client = AsyncIOMotorClient(MONGO_URI) if MONGO_URI else None
+mongo_db = mongo_client.get_default_database() if mongo_client else None
 
 TRUNCATE_OUTPUT = 2000
 
@@ -53,7 +59,7 @@ async def healthz():
 
 @app.post("/blueprint")
 async def submit_blueprint(payload: BlueprintSubmission):
-    """Submit a new blueprint and create a run record."""
+    """Submit a new blueprint and create a run record. Stores in MongoDB if configured."""
     run_id = f"porc-{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')[:-3]}"
     record = {
         "run_id": run_id,
@@ -61,6 +67,11 @@ async def submit_blueprint(payload: BlueprintSubmission):
         "status": "submitted",
         "blueprint": payload.dict()
     }
+    # Store in MongoDB if available
+    if mongo_db:
+        await mongo_db.blueprints.insert_one(record)
+        logging.info(f"Blueprint stored in MongoDB: {run_id}")
+    # Still write to file for now as backup
     meta_file = f"{DB_PATH}/{run_id}.json"
     tmp_file = meta_file + ".tmp"
     with open(tmp_file, "w") as f:
