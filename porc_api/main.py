@@ -52,6 +52,10 @@ class BlueprintSubmission(BaseModel):
     variables: dict = {}
     schema_version: str | None = None
 
+@app.get("/")
+async def root():
+    return {"status": "alive"}
+
 @app.get("/healthz")
 async def healthz():
     """Health check endpoint for Kubernetes liveness/readiness probes."""
