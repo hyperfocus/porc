@@ -1,8 +1,10 @@
 import os
 
 def get_env(name, default=None, required=False):
+
     value = os.getenv(name, default)
     if required and value is None:
+
         raise EnvironmentError(f"Missing required environment variable: {name}")
     return value
 
@@ -17,4 +19,5 @@ RUNS_PATH = get_env("PORC_RUNS_PATH", "/tmp/porc-runs")
 AUDIT_PATH = get_env("PORC_AUDIT_PATH", "/tmp/porc-audit")
 
 for path in [DB_PATH, RUNS_PATH, AUDIT_PATH]:
+
     os.makedirs(path, exist_ok=True)

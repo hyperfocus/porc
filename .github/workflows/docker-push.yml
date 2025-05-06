@@ -27,7 +27,7 @@ jobs:
           context: .
           file: docker/Dockerfile
           push: true
-          tags: ${{ env.IMAGE_NAME }}:latest
+          tags: porcupine.azurecr.io/porc:latest
 
   deploy:
     needs: build-and-push
