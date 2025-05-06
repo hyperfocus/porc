@@ -13,7 +13,7 @@ COPY porc_worker/ ./porc_worker/
 COPY pine/ ./pine/
 COPY porc_common/ ./porc_common/
 COPY schemas/ ./schemas/
-COPY docker/entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh && mkdir -p /tmp/porc-metadata /tmp/porc-runs /tmp/porc-audit
 

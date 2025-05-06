@@ -19,6 +19,47 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
+      - name: Set Version Tag from Git SHA
+        id: vars
+        run: echo "VERSION_TAG=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Set up Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Bump Chart.yaml Version (Extract + Append Build ID)
+        id: chart
+        run: |
+          BASE_VERSION=$(grep '^version:' porc-helm/Chart.yaml | awk '{print $2}' | cut -d'-' -f1)
+          BUILD_VERSION="${BASE_VERSION}-build.${{ github.run_number }}"
+
+          echo "Updating Chart.yaml to version $BUILD_VERSION"
+          sed -i "s/^version:.*/version: $BUILD_VERSION/" porc-helm/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"$BUILD_VERSION\"/" porc-helm/Chart.yaml
+
+          echo "CHART_VERSION=$BUILD_VERSION" >> $GITHUB_ENV
+
+      - name: Commit and Push Chart Version Bump
+        run: |
+          git add porc-helm/Chart.yaml
+          git commit -m "ci: bump chart version to ${CHART_VERSION}" || echo "No changes to commit"
+          git push
+
+      - name: Create Git Tag
+        run: |
+          git tag -a v${CHART_VERSION} -m "Release v${CHART_VERSION}"
+          git push origin v${CHART_VERSION}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.CHART_VERSION }}
+          name: Release v${{ env.CHART_VERSION }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Log in to Azure
         uses: azure/login@v1
         with:
@@ -32,9 +73,11 @@ jobs:
         run: |
           az acr login --name $ACR_NAME
 
-      - name: Build and Push Docker Image from ./docker
+      - name: Build and Push Docker Image
         run: |
-          docker build -t $ACR_NAME.azurecr.io/$IMAGE_NAME:latest -f docker/Dockerfile .
+          docker build --no-cache -t $ACR_NAME.azurecr.io/$IMAGE_NAME:${VERSION_TAG} -f Dockerfile .
+          docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:${VERSION_TAG}
+          docker tag $ACR_NAME.azurecr.io/$IMAGE_NAME:${VERSION_TAG} $ACR_NAME.azurecr.io/$IMAGE_NAME:latest
           docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:latest
 
       - name: Create ACR Image Pull Secret
@@ -43,4 +86,4 @@ jobs:
 
       - name: Deploy to AKS via Helm
         run: |
-          helm upgrade --install porc ./porc-helm -f ./values-final.yaml
+          helm upgrade --install porc ./porc-helm             --set image.repository=$ACR_NAME.azurecr.io/$IMAGE_NAME             --set image.tag=${VERSION_TAG}             -f ./values-final.yaml
