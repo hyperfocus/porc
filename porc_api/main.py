@@ -128,9 +128,9 @@ async def run_apply(run_id: str = Path(...)):
         return {"error": f"Terraform apply failed: {str(e)}"}
 
     from porc_core.github_checks import post_check
-external_id = data["blueprint"].get("metadata", {}).get("external_id", "")
-post_check(run_id, external_id, "PORC Apply", "success", "Terraform apply was triggered.")
-data["status"] = "apply_queued"
+    external_id = data["blueprint"].get("metadata", {}).get("external_id", "")
+    post_check(run_id, external_id, "PORC Apply", "success", "Terraform apply was triggered.")
+    data["status"] = "apply_queued"
     data["apply_started"] = datetime.utcnow().isoformat()
 
     with open(meta_file, "w") as f:
