@@ -92,7 +92,7 @@ data["status"] = "plan_queued"
 data["plan_started"] = datetime.utcnow().isoformat()
 data["tfe_run_id"] = tfe_run_id
 
-    with open(meta_file, "w") as f:
+with open(meta_file, "w") as f:
         json.dump(data, f, indent=2)
 
     return {"run_id": run_id, "tfe_run_id": tfe_run_id, "status": "plan_queued"}
