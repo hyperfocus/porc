@@ -9,8 +9,7 @@ Go to: **GitHub > Settings > Secrets and Variables > Actions**
 
 | Secret Name         | Description                                                          |
 |---------------------|----------------------------------------------------------------------|
-| `DOCKERHUB_USERNAME`| DockerHub account used to push images                                |
-| `DOCKERHUB_TOKEN`   | DockerHub PAT with `write:packages` and `read:packages`              |
+
 | `TFE_TOKEN`         | Terraform Enterprise API token for plan/apply operations             |
 | `AZURE_CREDENTIALS` | Output of `az ad sp create-for-rbac --sdk-auth`                      |
 | `AKS_RG`            | Azure Resource Group containing your AKS cluster                     |
