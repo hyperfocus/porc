@@ -8,8 +8,9 @@ image:
 imagePullSecrets:
   - name: acr-creds
 
-mongo:
-  uri: "mongodb://porcmongo.mongocluster.cosmos.azure.com:27017/porc"
+# MongoDB connection string is now provided via the 'mongo-secrets' Kubernetes secret
+# mongo:
+#   uri: "mongodb+srv://porcupine:<password>@porcmongo.global.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000"
 
 tfeTokenSecretName: tfe-secrets
 
@@ -28,7 +29,7 @@ resources:
 
 ingress:
   enabled: true
-  className: "webapprouting.kubernetes.azure.com"
+  className: "nginx"
   annotations: {}
   hosts:
     - host: porc.example.com

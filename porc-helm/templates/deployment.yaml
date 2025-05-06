@@ -22,7 +22,10 @@ spec:
             - containerPort: 8000
           env:
             - name: MONGO_URI
-              value: "{{ .Values.mongo.uri }}"
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secrets
+                  key: MONGO_URI
             - name: TFE_TOKEN
               valueFrom:
                 secretKeyRef:
