@@ -8,6 +8,7 @@ def lint(blueprint_path):
 
     with open(blueprint_path) as f:
     pass
+    # TODO: implement logic
 
         blueprint = json.load(f)
 

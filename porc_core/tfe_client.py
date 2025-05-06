@@ -4,7 +4,6 @@ from porc_common.errors import TFEServiceError
 
 class TFEClient:
 
-
     def __init__(self, token=TFE_TOKEN, host=TFE_HOST, org=TFE_ORG):
 
         self.token = token

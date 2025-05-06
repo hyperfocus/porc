@@ -8,7 +8,6 @@ class ValidationError(PORCError):
 
 class TFEServiceError(PORCError):
 
-
     def __init__(self, status_code, message):
 
         super().__init__(f"TFE API Error ({status_code}): {message}")

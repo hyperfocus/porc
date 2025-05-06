@@ -15,6 +15,7 @@ def poll_runs():
             path = os.path.join(DB_PATH, fname)
             with open(path) as f:
     pass
+    # TODO: implement logic
 
                 data = json.load(f)
             if data.get("status") == "submitted":
