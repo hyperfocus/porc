@@ -1,10 +1,5 @@
 replicaCount: 1
-env:
-  - name: TFE_TOKEN
-    valueFrom:
-      secretKeyRef:
-        name: tfe-secrets
-        key: TFE_TOKEN
+
 image:
   repository: porcupine.azurecr.io/porc
   tag: latest
@@ -15,6 +10,8 @@ imagePullSecrets:
 
 mongo:
   uri: "mongodb://porcmongo.mongocluster.cosmos.azure.com:27017/porc"
+
+tfeTokenSecretName: tfe-secrets
 
 service:
   type: ClusterIP
