@@ -16,6 +16,7 @@ tfeTokenSecretName: tfe-secrets
 service:
   type: ClusterIP
   port: 80
+  targetPort: 8000
 
 resources:
   limits:
@@ -26,4 +27,15 @@ resources:
     memory: 256Mi
 
 ingress:
-  enabled: false
+  enabled: true
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: porc.example.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: porc-tls
+      hosts:
+        - porc.example.com
