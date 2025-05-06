@@ -7,6 +7,7 @@ HEADERS = {
     "Accept": "application/vnd.github+json"
 }
 
+
 def parse_external_id(external_id):
     # Format: github:owner/repo@sha
     if not external_id.startswith("github:"):
@@ -18,6 +19,7 @@ def parse_external_id(external_id):
         return {"owner": owner, "repo": repo, "sha": sha}
     except Exception:
         return None
+
 
 def post_check(run_id, external_id, check_name, conclusion, summary):
     info = parse_external_id(external_id)

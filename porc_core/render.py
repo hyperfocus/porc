@@ -1,5 +1,6 @@
 import json
 
+
 def render_blueprint(blueprint: dict) -> dict:
     kind = blueprint["kind"]
     tfvars = blueprint.get("variables", {})

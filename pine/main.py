@@ -1,8 +1,10 @@
 import json
 from pathlib import Path
 import sys
+import requests
 
 SCHEMA_DIR = Path(__file__).parent / "schemas"
+
 
 def lint(blueprint_path):
     with open(blueprint_path) as f:
@@ -33,6 +35,7 @@ if __name__ == "__main__":
         sys.exit(1)
     lint(sys.argv[2])
 
+
 def validate(blueprint_path):
     print("[validate] Starting extended blueprint validation...")
     with open(blueprint_path) as f:
@@ -52,6 +55,7 @@ def validate(blueprint_path):
         sys.exit(1)
 
     print("Extended validation passed.")
+
 
 def build(blueprint_path):
     print("[build] Validating and submitting blueprint for render preview...")

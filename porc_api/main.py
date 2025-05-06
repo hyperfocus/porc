@@ -4,6 +4,7 @@ from porc_core.render import render_blueprint
 import os
 import json
 from datetime import datetime
+import requests
 
 app = FastAPI(title="PORC API")
 
