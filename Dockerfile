@@ -19,4 +19,4 @@ RUN chmod +x /entrypoint.sh && mkdir -p /tmp/porc-metadata /tmp/porc-runs /tmp/p
 
 EXPOSE 8000
 
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh api"]
