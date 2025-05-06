@@ -14,7 +14,7 @@ mongo:
 tfeTokenSecretName: tfe-secrets
 
 service:
-  type: ClusterIP
+  type: LoadBalancer
   port: 80
   targetPort: 8000
 
