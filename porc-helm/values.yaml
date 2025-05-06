@@ -28,7 +28,7 @@ resources:
 
 ingress:
   enabled: true
-  className: "nginx"
+  className: "ingress-nginx-controller"
   annotations: {}
   hosts:
     - host: porc.example.com
