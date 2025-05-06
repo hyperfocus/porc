@@ -28,7 +28,7 @@ resources:
 
 ingress:
   enabled: true
-  className: "ingress-nginx-controller"
+  className: "webapprouting.kubernetes.azure.com"
   annotations: {}
   hosts:
     - host: porc.example.com
