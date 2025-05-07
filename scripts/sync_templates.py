@@ -60,7 +60,9 @@ def sync_templates():
             templates = {}
             for template_file in version_dir.glob("*.j2"):
                 with open(template_file, "r") as f:
-                    templates[template_file.name] = f.read()
+                    # Store without .j2 extension
+                    template_name = template_file.stem
+                    templates[template_name] = f.read()
             
             if not templates:
                 logging.warning(f"No templates found in {version_dir}")
