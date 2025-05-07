@@ -15,7 +15,14 @@ class QuillManager:
             trim_blocks=True,
             lstrip_blocks=True
         )
-        self.storage_service = get_storage_service()
+        self._storage_service = None
+    
+    @property
+    def storage_service(self):
+        """Lazy initialization of storage service."""
+        if self._storage_service is None:
+            self._storage_service = get_storage_service()
+        return self._storage_service
     
     def get_quill(self, kind: str, version: str = "latest") -> Dict[str, str]:
         """Get the QUILL template for a given kind and version."""
