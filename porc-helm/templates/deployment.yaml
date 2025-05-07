@@ -46,13 +46,8 @@ spec:
                 secretKeyRef:
                   name: storage-secrets
                   key: storage-access-key
-            - name: STORAGE_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: porc-secrets
-                  key: storage-secret-key
             - name: STORAGE_BUCKET
-              value: {{ .Values.storage.bucket | default "porc-deployment-bundles" | quote }}
+              value: {{ .Values.storage.bucket | default "porcbundles" | quote }}
             - name: STORAGE_REGION
               value: {{ .Values.storage.region | default "us-east-1" | quote }}
           resources:
