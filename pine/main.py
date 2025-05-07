@@ -46,7 +46,9 @@ def lint(blueprint_path):
             logging.error(f"- {err}")
         raise BlueprintValidationError(errors)
 
-    schema_path = SCHEMA_DIR / blueprint["kind"] / f"{blueprint['schema_version']}.json"
+    schema_path = (SCHEMA_DIR 
+        / blueprint["kind"] 
+        / f"{blueprint['schema_version']}.json")
     if not schema_path.exists():
         logging.error(f"Schema not found: {schema_path}")
         raise BlueprintValidationError([f"Schema not found: {schema_path}"])
