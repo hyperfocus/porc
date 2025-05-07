@@ -23,7 +23,7 @@ class Environment(str, Enum):
     PROD = "prod"
 
 # Terraform Cloud configuration
-TFE_HOST = os.getenv("TFE_HOST", "https://app.terraform.io/api/v2")
+TFE_API = os.getenv("TFE_API", "https://app.terraform.io/api/v2")
 TFE_ORG = os.getenv("TFE_ORG", "porc_test")  # Default to porc_test organization
 TFE_ENV = os.getenv("TFE_ENV", Environment.DEV.value)
 GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY", "")
@@ -205,7 +205,7 @@ async def plan_run(run_id: str):
         
         # Initialize TFE client with configuration
         tfe = TFEClient(
-            host=TFE_HOST,
+            api_url=TFE_API,
             org=TFE_ORG
         )
         
@@ -287,7 +287,7 @@ async def apply_run(run_id: str):
         
         # Initialize TFE client with configuration
         tfe = TFEClient(
-            host=TFE_HOST,
+            api_url=TFE_API,
             org=TFE_ORG
         )
         
