@@ -27,25 +27,34 @@ class StateService:
     def __init__(self, table_name: Optional[str] = None):
         """Initialize state service with Azure Table Storage."""
         self.table_name = table_name or os.getenv("PORC_STATE_TABLE", "porcstate")
-        
-        account_name = os.getenv("STORAGE_ACCOUNT")
-        account_key = os.getenv("STORAGE_ACCESS_KEY")
-        if not account_name or not account_key:
-            raise ValueError("Azure Storage account name and access key are required")
-        
-        connection_string = f"DefaultEndpointsProtocol=https;AccountName={account_name};AccountKey={account_key};EndpointSuffix=core.windows.net"
-        self.table_service = TableServiceClient.from_connection_string(connection_string)
-        self.table_client = self._get_table_client()
-        self._ensure_table_exists()
+        self._table_service = None
+        self._table_client = None
     
-    def _get_table_client(self) -> TableClient:
-        """Get or create table client."""
-        return self.table_service.get_table_client(self.table_name)
+    @property
+    def table_service(self) -> TableServiceClient:
+        """Get the table service client, initializing it if needed."""
+        if self._table_service is None:
+            account_name = os.getenv("STORAGE_ACCOUNT")
+            account_key = os.getenv("STORAGE_ACCESS_KEY")
+            if not account_name or not account_key:
+                raise ValueError("Azure Storage account name and access key are required")
+            
+            connection_string = f"DefaultEndpointsProtocol=https;AccountName={account_name};AccountKey={account_key};EndpointSuffix=core.windows.net"
+            self._table_service = TableServiceClient.from_connection_string(connection_string)
+            self._ensure_table_exists()
+        return self._table_service
+    
+    @property
+    def table_client(self) -> TableClient:
+        """Get the table client, initializing it if needed."""
+        if self._table_client is None:
+            self._table_client = self.table_service.get_table_client(self.table_name)
+        return self._table_client
     
     def _ensure_table_exists(self):
         """Ensure the state table exists."""
         try:
-            self.table_service.create_table(self.table_name)
+            self._table_service.create_table(self.table_name)
             logging.info(f"Created state table: {self.table_name}")
         except ResourceExistsError:
             logging.info(f"Using existing state table: {self.table_name}")
@@ -115,5 +124,9 @@ class StateService:
         except Exception as e:
             logging.error(f"Failed to release lock: {str(e)}")
 
+def get_state_service() -> StateService:
+    """Get a state service instance."""
+    return StateService()
+
 # Initialize the state service
-state_service = StateService() 
+state_service = get_state_service() 

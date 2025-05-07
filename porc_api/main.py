@@ -18,7 +18,7 @@ from enum import Enum
 import time
 from porc_core.quill import quill_manager
 from porc_core.github_client import GitHubClient, get_github_client
-from porc_core.state import state_service, RunState
+from porc_core.state import StateService, RunState, get_state_service
 from porc_core.storage import StorageService, get_storage_service
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -56,15 +56,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize services
-state_service = state_service
-
 # Dependencies
 def get_storage_service_dependency() -> StorageService:
     return get_storage_service()
 
 def get_github_client_dependency() -> GitHubClient:
     return get_github_client()
+
+def get_state_service_dependency() -> StateService:
+    return get_state_service()
 
 def sanitize_workspace_name(name: str) -> str:
     """Convert repository name to valid workspace name."""
@@ -204,7 +204,8 @@ async def submit_blueprint(payload: BlueprintSubmission):
 @app.post("/run/{run_id}/build")
 async def build_from_blueprint(
     run_id: str = Path(...),
-    storage_service: StorageService = Depends(get_storage_service_dependency)
+    storage_service: StorageService = Depends(get_storage_service_dependency),
+    state_service: StateService = Depends(get_state_service_dependency)
 ):
     """Build files from a submitted blueprint for a given run_id."""
     if sanitize_run_id(run_id):
@@ -280,7 +281,8 @@ async def build_from_blueprint(
 async def plan_run(
     run_id: str,
     storage_service: StorageService = Depends(get_storage_service_dependency),
-    github_client: GitHubClient = Depends(get_github_client_dependency)
+    github_client: GitHubClient = Depends(get_github_client_dependency),
+    state_service: StateService = Depends(get_state_service_dependency)
 ):
     """Run 'terraform plan' for the given run_id using Terraform Cloud."""
     if sanitize_run_id(run_id):
@@ -442,7 +444,8 @@ async def plan_run(
 async def apply_run(
     run_id: str,
     storage_service: StorageService = Depends(get_storage_service_dependency),
-    github_client: GitHubClient = Depends(get_github_client_dependency)
+    github_client: GitHubClient = Depends(get_github_client_dependency),
+    state_service: StateService = Depends(get_state_service_dependency)
 ):
     """Run 'terraform apply' for the given run_id using Terraform Cloud."""
     if sanitize_run_id(run_id):
@@ -601,7 +604,10 @@ async def apply_run(
         )
 
 @app.get("/run/{run_id}/status")
-async def get_status(run_id: str):
+async def get_status(
+    run_id: str,
+    state_service: StateService = Depends(get_state_service_dependency)
+):
     """Get the status of a run by run_id."""
     if sanitize_run_id(run_id):
         return sanitize_run_id(run_id)
@@ -647,7 +653,8 @@ async def get_status(run_id: str):
 @app.get("/run/{run_id}/summary")
 async def get_summary(
     run_id: str,
-    storage_service: StorageService = Depends(get_storage_service_dependency)
+    storage_service: StorageService = Depends(get_storage_service_dependency),
+    state_service: StateService = Depends(get_state_service_dependency)
 ):
     """Get a summary of a run, including status and file previews."""
     if sanitize_run_id(run_id):
