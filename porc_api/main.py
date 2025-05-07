@@ -6,6 +6,7 @@ import os
 import re
 import logging
 import sys
+from datetime import datetime
 from fastapi import FastAPI, Request, Path
 from pydantic import BaseModel
 from porc_common.config import DB_PATH
@@ -59,7 +60,8 @@ async def root():
 @app.get("/healthz")
 async def healthz():
     """Health check endpoint for Kubernetes liveness/readiness probes."""
-    return {"status": "ok"}
+    from fastapi.responses import JSONResponse
+    return JSONResponse(content={"status": "ok"})
 
 @app.post("/blueprint")
 async def submit_blueprint(payload: BlueprintSubmission):
@@ -113,7 +115,6 @@ async def build_from_blueprint(run_id: str = Path(...)):
 from fastapi.responses import JSONResponse
 from porc_common.config import RUNS_PATH
 import subprocess
-from datetime import datetime
 
 @app.post("/run/{run_id}/plan")
 async def plan_run(run_id: str):
