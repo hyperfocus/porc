@@ -72,7 +72,7 @@ async def submit_blueprint(payload: BlueprintSubmission):
         "blueprint": payload.dict()
     }
     # Store in MongoDB if available
-    if mongo_db:
+    if mongo_db is not None:
         await mongo_db.blueprints.insert_one(record)
         logging.info(f"Blueprint stored in MongoDB: {run_id}")
     # Still write to file for now as backup
