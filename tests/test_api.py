@@ -113,7 +113,9 @@ async def test_blueprint_full_lifecycle(base_url, host_header, ignore_ssl):
     blueprint = {
         "kind": "example",
         "variables": {},
-        "schema_version": "v1"
+        "schema_version": "v1",
+        "external_reference": "test-pr-123",
+        "source_repo": "test-org/test-repo"
     }
     if isinstance(client, AsyncClient):
         resp = await client.post("/blueprint", headers=headers, json=blueprint)
