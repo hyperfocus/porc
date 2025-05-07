@@ -49,13 +49,6 @@ app = FastAPI(title="PORC API")
 def get_storage_service():
     return storage_service
 
-# Override storage service for testing
-@app.on_event("startup")
-async def startup_event():
-    if os.getenv("TESTING") == "true":
-        from porc_core.storage import MockStorageService
-        app.dependency_overrides[get_storage_service] = lambda: MockStorageService()
-
 def sanitize_workspace_name(name: str) -> str:
     """Convert repository name to valid workspace name."""
     # Replace invalid characters with hyphens
