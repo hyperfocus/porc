@@ -29,8 +29,8 @@ service:
   targetPort: 8000
 
 storage:
-  account: ""  # Azure storage account name
-  bucket: porcbundles  # Azure blob container name
+  account: "porcbundles"  # Azure storage account name
+  bucket: "porc-deployment-bundles"  # Azure blob container name
 
 resources:
   limits:
