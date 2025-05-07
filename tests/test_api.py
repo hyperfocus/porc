@@ -4,20 +4,20 @@ from httpx import AsyncClient
 from porc_api.main import app
 import logging
 
-def get_test_client(base_url, verify_ssl):
+def get_test_client(base_url, ignore_ssl):
     # Use in-memory app only for local testing
     if base_url == "http://test":
         return TestClient(app)
     else:
-        return AsyncClient(base_url=base_url, verify=verify_ssl)
+        return AsyncClient(base_url=base_url, verify=not ignore_ssl)
 
 @pytest.mark.asyncio
-async def test_root(base_url, host_header, verify_ssl):
+async def test_root(base_url, host_header, ignore_ssl):
     headers = {}
     if host_header:
         headers["Host"] = host_header
     
-    client = get_test_client(base_url, verify_ssl)
+    client = get_test_client(base_url, ignore_ssl)
     if isinstance(client, AsyncClient):
         resp = await client.get("/", headers=headers)
     else:
@@ -26,12 +26,12 @@ async def test_root(base_url, host_header, verify_ssl):
     assert resp.json() == {"status": "alive"}
 
 @pytest.mark.asyncio
-async def test_health(base_url, host_header, verify_ssl):
+async def test_health(base_url, host_header, ignore_ssl):
     headers = {}
     if host_header:
         headers["Host"] = host_header
 
-    client = get_test_client(base_url, verify_ssl)
+    client = get_test_client(base_url, ignore_ssl)
     if isinstance(client, AsyncClient):
         resp = await client.get("/health", headers=headers)
     else:
@@ -40,12 +40,12 @@ async def test_health(base_url, host_header, verify_ssl):
     assert resp.json() == {"status": "ok"}
 
 @pytest.mark.asyncio
-async def test_invalid_blueprint_submission(base_url, host_header, verify_ssl):
+async def test_invalid_blueprint_submission(base_url, host_header, ignore_ssl):
     headers = {"Content-Type": "application/json"}
     if host_header:
         headers["Host"] = host_header
     
-    client = get_test_client(base_url, verify_ssl)
+    client = get_test_client(base_url, ignore_ssl)
     
     # Test missing required field
     invalid_blueprint = {
@@ -59,12 +59,12 @@ async def test_invalid_blueprint_submission(base_url, host_header, verify_ssl):
     assert resp.status_code == 422  # Validation error
 
 @pytest.mark.asyncio
-async def test_invalid_run_id(base_url, host_header, verify_ssl):
+async def test_invalid_run_id(base_url, host_header, ignore_ssl):
     headers = {}
     if host_header:
         headers["Host"] = host_header
     
-    client = get_test_client(base_url, verify_ssl)
+    client = get_test_client(base_url, ignore_ssl)
     
     # Test invalid run ID format with special characters
     invalid_run_id = "invalid.run.id"
@@ -85,12 +85,12 @@ async def test_invalid_run_id(base_url, host_header, verify_ssl):
     assert resp.json()["error"] == "Invalid run_id"
 
 @pytest.mark.asyncio
-async def test_nonexistent_run_id(base_url, host_header, verify_ssl):
+async def test_nonexistent_run_id(base_url, host_header, ignore_ssl):
     headers = {}
     if host_header:
         headers["Host"] = host_header
     
-    client = get_test_client(base_url, verify_ssl)
+    client = get_test_client(base_url, ignore_ssl)
     
     # Test non-existent run ID
     nonexistent_run_id = "porc-nonexistent"
@@ -102,12 +102,12 @@ async def test_nonexistent_run_id(base_url, host_header, verify_ssl):
     assert resp.json()["error"] == "Run ID not found"
 
 @pytest.mark.asyncio
-async def test_blueprint_full_lifecycle(base_url, host_header, verify_ssl):
+async def test_blueprint_full_lifecycle(base_url, host_header, ignore_ssl):
     headers = {"Content-Type": "application/json"}
     if host_header:
         headers["Host"] = host_header
     
-    client = get_test_client(base_url, verify_ssl)
+    client = get_test_client(base_url, ignore_ssl)
     
     # Submit a blueprint
     blueprint = {
