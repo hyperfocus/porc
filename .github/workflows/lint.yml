@@ -24,7 +24,7 @@ jobs:
 
       - name: Install linting & formatting tools
         run: |
-          pip install flake8 ruff autopep8 autoflake isort
+          pip install flake8 autopep8 autoflake isort
 
       - name: Remove unused imports & variables
         run: |
@@ -38,10 +38,6 @@ jobs:
       - name: Auto-format code
         run: |
           autopep8 --in-place --aggressive --aggressive --recursive .
-
-      - name: Apply Ruff fixes
-        run: |
-          ruff fix .
 
       - name: Run Flake8
         run: |
