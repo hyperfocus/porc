@@ -41,7 +41,7 @@ jobs:
 
             if [[ "$autoscaler" == "true" ]]; then
               echo "Disabling autoscaler for $pool..."
-              az aks nodepool update                 --resource-group "$RESOURCE_GROUP"                 --cluster-name "$CLUSTER_NAME"                 --name "$pool"                 --enable-cluster-autoscaler false
+              az aks nodepool update                 --resource-group "$RESOURCE_GROUP"                 --cluster-name "$CLUSTER_NAME"                 --name "$pool"                 --disable-cluster-autoscaler
             fi
 
             echo "Scaling $pool to 0 nodes..."
