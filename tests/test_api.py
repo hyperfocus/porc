@@ -111,9 +111,9 @@ async def test_blueprint_full_lifecycle(base_url, host_header, ignore_ssl):
     
     # Submit a blueprint
     blueprint = {
-        "kind": "example",
+        "kind": "postgres-db",
         "variables": {},
-        "schema_version": "v1",
+        "schema_version": "1.0.0",
         "external_reference": "test-pr-123",
         "source_repo": "test-org/test-repo"
     }

@@ -1,0 +1,120 @@
+# Azure Provider configuration
+provider "azurerm" {
+  features {}
+}
+
+# Resource Group
+resource "azurerm_resource_group" "rg" {
+  name     = "{{ resource_group_name }}"
+  location = "{{ location }}"
+  tags     = {{ tags | to_json }}
+}
+
+# Virtual Network
+resource "azurerm_virtual_network" "vnet" {
+  name                = "{{ vnet_name }}"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  address_space       = ["{{ vnet_address_space }}"]
+}
+
+# Subnet for App Service
+resource "azurerm_subnet" "app_subnet" {
+  name                 = "app-subnet"
+  resource_group_name  = azurerm_resource_group.rg.name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefixes     = ["{{ app_subnet_prefix }}"]
+  service_endpoints    = ["Microsoft.Web", "Microsoft.KeyVault"]
+}
+
+# App Service Plan
+resource "azurerm_service_plan" "plan" {
+  name                = "{{ app_service_plan_name }}"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  os_type            = "{{ os_type }}"
+  sku_name           = "{{ app_service_plan_sku }}"
+}
+
+# App Service
+resource "azurerm_linux_web_app" "app" {
+  count               = "{{ os_type }}" == "Linux" ? 1 : 0
+  name                = "{{ app_service_name }}"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  service_plan_id     = azurerm_service_plan.plan.id
+
+  site_config {
+    application_stack {
+      {% if runtime_stack == "python" %}
+      python_version = "{{ runtime_version }}"
+      {% elif runtime_stack == "node" %}
+      node_version = "{{ runtime_version }}"
+      {% elif runtime_stack == "php" %}
+      php_version = "{{ runtime_version }}"
+      {% elif runtime_stack == "java" %}
+      java_version = "{{ runtime_version }}"
+      java_server = "{{ java_server }}"
+      {% elif runtime_stack == "dotnet" %}
+      dotnet_version = "{{ runtime_version }}"
+      {% elif runtime_stack == "ruby" %}
+      ruby_version = "{{ runtime_version }}"
+      {% endif %}
+    }
+    vnet_route_all_enabled = true
+  }
+
+  app_settings = {{ app_settings | to_json }}
+
+  virtual_network_subnet_id = azurerm_subnet.app_subnet.id
+}
+
+resource "azurerm_windows_web_app" "app" {
+  count               = "{{ os_type }}" == "Windows" ? 1 : 0
+  name                = "{{ app_service_name }}"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  service_plan_id     = azurerm_service_plan.plan.id
+
+  site_config {
+    application_stack {
+      {% if runtime_stack == "dotnet" %}
+      dotnet_version = "{{ runtime_version }}"
+      {% elif runtime_stack == "node" %}
+      node_version = "{{ runtime_version }}"
+      {% elif runtime_stack == "php" %}
+      php_version = "{{ runtime_version }}"
+      {% elif runtime_stack == "java" %}
+      java_version = "{{ runtime_version }}"
+      java_server = "{{ java_server }}"
+      {% endif %}
+    }
+    vnet_route_all_enabled = true
+  }
+
+  app_settings = {{ app_settings | to_json }}
+
+  virtual_network_subnet_id = azurerm_subnet.app_subnet.id
+}
+
+# Custom Domain (if provided)
+{% if custom_domain_name %}
+resource "azurerm_dns_zone" "domain" {
+  name                = "{{ custom_domain_name }}"
+  resource_group_name = azurerm_resource_group.rg.name
+}
+
+resource "azurerm_dns_cname_record" "app" {
+  name                = "{{ custom_domain_prefix }}"
+  zone_name           = azurerm_dns_zone.domain.name
+  resource_group_name = azurerm_resource_group.rg.name
+  ttl                 = 3600
+  record              = "{{ app_service_name }}.azurewebsites.net"
+}
+
+resource "azurerm_app_service_custom_hostname_binding" "app" {
+  hostname            = "{{ custom_domain_prefix }}.{{ custom_domain_name }}"
+  app_service_name    = "{{ app_service_name }}"
+  resource_group_name = azurerm_resource_group.rg.name
+}
+{% endif %} 
