@@ -9,9 +9,70 @@ import sys
 from datetime import datetime
 from fastapi import FastAPI, Request, Path
 from pydantic import BaseModel
-from porc_common.config import DB_PATH
+from porc_common.config import DB_PATH, RUNS_PATH
 from porc_core.render import render_blueprint
 from motor.motor_asyncio import AsyncIOMotorClient
+from porc_core.tfe_client import TFEClient
+from porc_common.errors import TFEServiceError
+from enum import Enum
+
+# Environment configuration
+class Environment(str, Enum):
+    DEV = "dev"
+    PAT = "pat"
+    PROD = "prod"
+
+# Terraform Cloud configuration
+TFE_HOST = os.getenv("TFE_HOST", "app.terraform.io")
+TFE_ORG = os.getenv("TFE_ORG")
+TFE_ENV = os.getenv("TFE_ENV", Environment.DEV.value)
+GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY", "")
+
+def sanitize_workspace_name(name: str) -> str:
+    """Convert repository name to valid workspace name."""
+    # Replace invalid characters with hyphens
+    name = re.sub(r'[^a-zA-Z0-9\-_]', '-', name)
+    # Ensure it starts with a letter or number
+    if not name[0].isalnum():
+        name = 'ws-' + name
+    return name.lower()
+
+def get_workspace_name() -> str:
+    """Generate workspace name based on GitHub repository and environment."""
+    if not TFE_ORG:
+        raise ValueError("TFE_ORG environment variable is not set")
+    
+    if not GITHUB_REPOSITORY:
+        raise ValueError("GITHUB_REPOSITORY environment variable is not set")
+    
+    # Validate environment
+    try:
+        env = Environment(TFE_ENV)
+    except ValueError:
+        raise ValueError(f"Invalid environment: {TFE_ENV}. Must be one of: {[e.value for e in Environment]}")
+    
+    # Extract repository name (remove owner prefix if present)
+    repo_name = GITHUB_REPOSITORY.split('/')[-1]
+    
+    # Format: repo-name-env
+    workspace_name = f"{sanitize_workspace_name(repo_name)}-{env.value}"
+    return workspace_name
+
+def ensure_workspace_exists(tfe: TFEClient, workspace_name: str) -> str:
+    """Ensure workspace exists, create if it doesn't."""
+    try:
+        workspace_id = tfe.get_workspace_id(workspace_name)
+        return workspace_id
+    except TFEServiceError as e:
+        if "not found" in str(e).lower():
+            logging.info(f"Creating workspace: {workspace_name}")
+            return tfe.create_workspace(
+                name=workspace_name,
+                organization=TFE_ORG,
+                auto_apply=True,  # Auto-apply for dev environment
+                execution_mode="remote"
+            )
+        raise
 
 app = FastAPI(title="PORC API")
 
@@ -128,53 +189,152 @@ async def build_from_blueprint(run_id: str = Path(...)):
 
 from fastapi.responses import JSONResponse
 from porc_common.config import RUNS_PATH
-import subprocess
 
 @app.post("/run/{run_id}/plan")
 async def plan_run(run_id: str):
-    """Run 'terraform plan' for the given run_id."""
+    """Run 'terraform plan' for the given run_id using Terraform Cloud."""
     if sanitize_run_id(run_id):
         return sanitize_run_id(run_id)
     run_dir = f"{RUNS_PATH}/{run_id}"
     if not os.path.exists(run_dir):
         return JSONResponse(status_code=404, content={"error": "Run files not found"})
-    result = subprocess.run(
-        ["terraform", "plan", "-input=false", "-no-color"],
-        cwd=run_dir,
-        capture_output=True,
-        text=True
-    )
-    with open(f"{run_dir}/plan.out", "w") as f:
-        f.write(result.stdout)
-    logging.info(f"Terraform plan for run_id {run_id} (returncode={result.returncode})")
-    return {
-        "run_id": run_id,
-        "status": "planned" if result.returncode == 0 else "plan_failed",
-        "output": result.stdout[:TRUNCATE_OUTPUT]
-    }
+    
+    try:
+        # Get workspace name based on GitHub repository and environment
+        workspace_name = get_workspace_name()
+        
+        # Initialize TFE client with configuration
+        tfe = TFEClient(
+            host=TFE_HOST,
+            organization=TFE_ORG
+        )
+        
+        # Ensure workspace exists
+        workspace_id = ensure_workspace_exists(tfe, workspace_name)
+        
+        # Create a new configuration version
+        config_version_id, upload_url = tfe.create_config_version(workspace_id)
+        
+        # Create a zip of the terraform files
+        import zipfile
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as tmp:
+            with zipfile.ZipFile(tmp.name, 'w') as zf:
+                for root, _, files in os.walk(run_dir):
+                    for file in files:
+                        if file.endswith('.tf'):
+                            zf.write(os.path.join(root, file), 
+                                   os.path.relpath(os.path.join(root, file), run_dir))
+        
+        # Upload the configuration
+        tfe.upload_files(upload_url, tmp.name)
+        os.unlink(tmp.name)  # Clean up temp file
+        
+        # Create and start a run
+        tfe_run_id = tfe.create_run(workspace_id, config_version_id)
+        
+        # Wait for the run to complete
+        status = tfe.wait_for_run(tfe_run_id)
+        
+        # Get the plan output
+        plan_output = tfe.get_plan_output(tfe_run_id)
+        
+        # Save the output
+        with open(f"{run_dir}/plan.out", "w") as f:
+            f.write(plan_output)
+        
+        return {
+            "run_id": run_id,
+            "tfe_run_id": tfe_run_id,
+            "workspace": workspace_name,
+            "status": "planned" if status == "planned_and_finished" else "plan_failed",
+            "output": plan_output[:TRUNCATE_OUTPUT]
+        }
+    except ValueError as e:
+        error_msg = str(e)
+        logging.error(error_msg)
+        return JSONResponse(
+            status_code=400,
+            content={"error": error_msg}
+        )
+    except TFEServiceError as e:
+        error_msg = f"Terraform Cloud error: {str(e)}"
+        logging.error(error_msg)
+        return JSONResponse(
+            status_code=500,
+            content={"error": error_msg}
+        )
+    except Exception as e:
+        error_msg = f"Error running terraform plan: {str(e)}"
+        logging.error(error_msg)
+        return JSONResponse(
+            status_code=500,
+            content={"error": error_msg}
+        )
 
 @app.post("/run/{run_id}/apply")
 async def apply_run(run_id: str):
-    """Run 'terraform apply' for the given run_id."""
+    """Run 'terraform apply' for the given run_id using Terraform Cloud."""
     if sanitize_run_id(run_id):
         return sanitize_run_id(run_id)
     run_dir = f"{RUNS_PATH}/{run_id}"
     if not os.path.exists(run_dir):
         return JSONResponse(status_code=404, content={"error": "Run files not found"})
-    result = subprocess.run(
-        ["terraform", "apply", "-auto-approve", "-input=false", "-no-color"],
-        cwd=run_dir,
-        capture_output=True,
-        text=True
-    )
-    with open(f"{run_dir}/apply.out", "w") as f:
-        f.write(result.stdout)
-    logging.info(f"Terraform apply for run_id {run_id} (returncode={result.returncode})")
-    return {
-        "run_id": run_id,
-        "status": "applied" if result.returncode == 0 else "apply_failed",
-        "output": result.stdout[:TRUNCATE_OUTPUT]
-    }
+    
+    try:
+        # Get workspace name based on GitHub repository and environment
+        workspace_name = get_workspace_name()
+        
+        # Initialize TFE client with configuration
+        tfe = TFEClient(
+            host=TFE_HOST,
+            organization=TFE_ORG
+        )
+        
+        # Ensure workspace exists
+        workspace_id = ensure_workspace_exists(tfe, workspace_name)
+        
+        # Apply the run
+        tfe.apply_run(run_id)
+        
+        # Wait for the apply to complete
+        status = tfe.wait_for_run(run_id)
+        
+        # Get the apply output
+        apply_output = tfe.get_apply_output(run_id)
+        
+        # Save the output
+        with open(f"{run_dir}/apply.out", "w") as f:
+            f.write(apply_output)
+        
+        return {
+            "run_id": run_id,
+            "tfe_run_id": run_id,
+            "workspace": workspace_name,
+            "status": "applied" if status == "applied" else "apply_failed",
+            "output": apply_output[:TRUNCATE_OUTPUT]
+        }
+    except ValueError as e:
+        error_msg = str(e)
+        logging.error(error_msg)
+        return JSONResponse(
+            status_code=400,
+            content={"error": error_msg}
+        )
+    except TFEServiceError as e:
+        error_msg = f"Terraform Cloud error: {str(e)}"
+        logging.error(error_msg)
+        return JSONResponse(
+            status_code=500,
+            content={"error": error_msg}
+        )
+    except Exception as e:
+        error_msg = f"Error running terraform apply: {str(e)}"
+        logging.error(error_msg)
+        return JSONResponse(
+            status_code=500,
+            content={"error": error_msg}
+        )
 
 @app.get("/run/{run_id}/status")
 async def get_status(run_id: str):

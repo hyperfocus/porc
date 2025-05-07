@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 from porc_api.main import app
+import logging
 
 def get_test_client(base_url, verify_ssl):
     # Use in-memory app only for local testing
@@ -136,14 +137,22 @@ async def test_blueprint_full_lifecycle(base_url, host_header, verify_ssl):
         resp = await client.post(f"/run/{run_id}/plan", headers=headers)
     else:
         resp = client.post(f"/run/{run_id}/plan", headers=headers)
-    assert resp.status_code in (200, 404, 500)  # Accept 500 for CI
+    # Accept 500 if terraform is not available
+    if resp.status_code == 500 and "terraform" in resp.text.lower():
+        logging.info("Terraform not available, skipping plan test")
+    else:
+        assert resp.status_code == 200
 
     # Apply (may fail if Terraform is not set up, but test the endpoint)
     if isinstance(client, AsyncClient):
         resp = await client.post(f"/run/{run_id}/apply", headers=headers)
     else:
         resp = client.post(f"/run/{run_id}/apply", headers=headers)
-    assert resp.status_code in (200, 404, 500)
+    # Accept 500 if terraform is not available
+    if resp.status_code == 500 and "terraform" in resp.text.lower():
+        logging.info("Terraform not available, skipping apply test")
+    else:
+        assert resp.status_code == 200
 
     # Status
     if isinstance(client, AsyncClient):
