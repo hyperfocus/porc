@@ -2,3 +2,6 @@
 name = "porc"
 version = "0.1.0"
 description = "Platform Orchestrator + CLI"
+
+[tool.pytest.ini_options]
+norecursedirs = ["porc_dg"]
