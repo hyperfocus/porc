@@ -1,0 +1,10 @@
+{
+  "name": "Terraform DAG Summary",
+  "status": "completed",
+  "conclusion": "success",
+  "output": {
+    "title": "Terraform Blueprint DAG",
+    "summary": "Modules will be applied in the following order:",
+    "text": "1. network\n2. db\n3. app\n4. frontend"
+  }
+}

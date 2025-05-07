@@ -1,0 +1,26 @@
+{
+  "modules": [
+    {
+      "name": "network",
+      "depends_on": []
+    },
+    {
+      "name": "db",
+      "depends_on": [
+        "network"
+      ]
+    },
+    {
+      "name": "app",
+      "depends_on": [
+        "network"
+      ]
+    },
+    {
+      "name": "frontend",
+      "depends_on": [
+        "app"
+      ]
+    }
+  ]
+}
