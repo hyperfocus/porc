@@ -1,4 +1,4 @@
-⁷replicaCount: 1
+replicaCount: 1
 
 image:
   repository: porcupine.azurecr.io/porc
@@ -12,7 +12,16 @@ imagePullSecrets:
 # mongo:
 #   uri: "mongodb+srv://porcupine:<password>@porcmongo.global.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000"
 
-tfeTokenSecretName: tfe-secrets
+# Terraform Enterprise configuration
+tfe:
+  host: "app.terraform.io"
+  org: "porc_test"
+  env: "dev"
+  tokenSecretName: tfe-secrets
+
+# GitHub configuration
+github:
+  repository: "porc_test/porc"
 
 service:
   type: ClusterIP

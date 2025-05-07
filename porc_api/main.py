@@ -24,7 +24,7 @@ class Environment(str, Enum):
 
 # Terraform Cloud configuration
 TFE_HOST = os.getenv("TFE_HOST", "app.terraform.io")
-TFE_ORG = os.getenv("TFE_ORG")
+TFE_ORG = os.getenv("TFE_ORG", "porc_test")  # Default to porc_test organization
 TFE_ENV = os.getenv("TFE_ENV", Environment.DEV.value)
 GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY", "")
 

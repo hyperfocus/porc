@@ -29,7 +29,15 @@ spec:
             - name: TFE_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.tfeTokenSecretName }}
+                  name: {{ .Values.tfe.tokenSecretName }}
                   key: TFE_TOKEN
+            - name: TFE_HOST
+              value: {{ .Values.tfe.host | quote }}
+            - name: TFE_ORG
+              value: {{ .Values.tfe.org | quote }}
+            - name: TFE_ENV
+              value: {{ .Values.tfe.env | quote }}
+            - name: GITHUB_REPOSITORY
+              value: {{ .Values.github.repository | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
