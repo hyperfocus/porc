@@ -15,5 +15,4 @@ if __name__ == "__main__":
     print("Execution Order:")
     for step in order:
         print(f" - {step}")
-    print(f"
-DAG image saved as: {image}")
+    print(f"DAG image saved as: {image}")

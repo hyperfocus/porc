@@ -158,4 +158,5 @@ async def test_blueprint_full_lifecycle(base_url, host_header, verify_ssl):
         resp = await client.get(f"/run/{run_id}/summary", headers=headers)
     else:
         resp = client.get(f"/run/{run_id}/summary", headers=headers)
-    assert resp.status_code in (200, 404) 
+    assert resp.status_code in (200, 404)
+    
