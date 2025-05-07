@@ -7,7 +7,7 @@ import re
 import logging
 import sys
 from datetime import datetime
-from fastapi import FastAPI, Request, Path
+from fastapi import FastAPI, Request, Path, Depends
 from pydantic import BaseModel
 from porc_common.config import DB_PATH, RUNS_PATH
 from porc_core.render import render_blueprint
@@ -41,6 +41,20 @@ STORAGE_BUCKET = os.getenv("STORAGE_BUCKET", "porcbundles")
 # Initialize storage service with configuration
 if not STORAGE_ACCOUNT or not STORAGE_ACCESS_KEY:
     logging.warning("Storage service not configured - missing required environment variables")
+
+# Create FastAPI app
+app = FastAPI(title="PORC API")
+
+# Dependency for storage service
+def get_storage_service():
+    return storage_service
+
+# Override storage service for testing
+@app.on_event("startup")
+async def startup_event():
+    if os.getenv("TESTING") == "true":
+        from porc_core.storage import MockStorageService
+        app.dependency_overrides[get_storage_service] = lambda: MockStorageService()
 
 def sanitize_workspace_name(name: str) -> str:
     """Convert repository name to valid workspace name."""
@@ -87,8 +101,6 @@ def ensure_workspace_exists(tfe: TFEClient, workspace_name: str) -> str:
                 execution_mode="remote"
             )
         raise
-
-app = FastAPI(title="PORC API")
 
 # MongoDB setup
 MONGO_URI = os.getenv("MONGO_URI")
