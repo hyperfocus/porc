@@ -5,7 +5,7 @@ import os
 import json
 import logging
 from pathlib import Path
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import BlobServiceClient, ContentSettings
 from azure.core.exceptions import ResourceNotFoundError
 
 # Configure logging
@@ -69,10 +69,11 @@ def sync_templates():
             # Store templates in Azure
             template_key = f"quills/{kind}/{version}/templates.json"
             blob_client = client.get_blob_client(container=bucket_name, blob=template_key)
+            content_settings = ContentSettings(content_type='application/json')
             blob_client.upload_blob(
                 json.dumps(templates),
                 overwrite=True,
-                content_settings={'content_type': 'application/json'}
+                content_settings=content_settings
             )
             logging.info(f"Stored templates: {template_key}")
             
@@ -82,7 +83,7 @@ def sync_templates():
             blob_client.upload_blob(
                 json.dumps(templates),
                 overwrite=True,
-                content_settings={'content_type': 'application/json'}
+                content_settings=content_settings
             )
             logging.info(f"Updated latest: {latest_key}")
 
