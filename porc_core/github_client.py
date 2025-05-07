@@ -9,13 +9,27 @@ from typing import Dict, Any, Optional
 class GitHubClient:
     def __init__(self, token: Optional[str] = None):
         """Initialize GitHub client with token."""
-        self.token = token or os.getenv("GITHUB_TOKEN")
-        if not self.token:
-            raise ValueError("GitHub token is required")
-        self.headers = {
-            "Authorization": f"token {self.token}",
-            "Accept": "application/vnd.github.v3+json"
-        }
+        self._token = token
+        self._headers = None
+    
+    @property
+    def token(self) -> str:
+        """Get the GitHub token, initializing it if needed."""
+        if self._token is None:
+            self._token = os.getenv("GITHUB_TOKEN")
+            if not self._token:
+                raise ValueError("GitHub token is required")
+        return self._token
+    
+    @property
+    def headers(self) -> Dict[str, str]:
+        """Get the request headers, initializing them if needed."""
+        if self._headers is None:
+            self._headers = {
+                "Authorization": f"token {self.token}",
+                "Accept": "application/vnd.github.v3+json"
+            }
+        return self._headers
     
     def create_check_run(self, owner: str, repo: str, sha: str, name: str) -> Dict[str, Any]:
         """Create a new check run."""
@@ -43,5 +57,9 @@ class GitHubClient:
         response.raise_for_status()
         return response.json()
 
+def get_github_client() -> GitHubClient:
+    """Get a GitHub client instance."""
+    return GitHubClient()
+
 # Initialize the GitHub client
-github_client = GitHubClient() 
+github_client = get_github_client() 

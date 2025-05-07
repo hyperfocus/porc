@@ -17,7 +17,7 @@ from porc_common.errors import TFEServiceError
 from enum import Enum
 import time
 from porc_core.quill import quill_manager
-from porc_core.github_client import github_client
+from porc_core.github_client import GitHubClient, get_github_client
 from porc_core.state import state_service, RunState
 from porc_core.storage import StorageService, get_storage_service
 from fastapi.responses import JSONResponse
@@ -58,11 +58,13 @@ app.add_middleware(
 
 # Initialize services
 state_service = state_service
-github_service = github_client
 
-# Dependency for storage service
+# Dependencies
 def get_storage_service_dependency() -> StorageService:
     return get_storage_service()
+
+def get_github_client_dependency() -> GitHubClient:
+    return get_github_client()
 
 def sanitize_workspace_name(name: str) -> str:
     """Convert repository name to valid workspace name."""
@@ -277,7 +279,8 @@ async def build_from_blueprint(
 @app.post("/run/{run_id}/plan")
 async def plan_run(
     run_id: str,
-    storage_service: StorageService = Depends(get_storage_service_dependency)
+    storage_service: StorageService = Depends(get_storage_service_dependency),
+    github_client: GitHubClient = Depends(get_github_client_dependency)
 ):
     """Run 'terraform plan' for the given run_id using Terraform Cloud."""
     if sanitize_run_id(run_id):
@@ -306,7 +309,7 @@ async def plan_run(
         owner, repo = source_repo.split('/')
         
         # Create GitHub check run
-        check_run = github_service.create_check_run(
+        check_run = github_client.create_check_run(
             owner=owner,
             repo=repo,
             sha=external_ref,
@@ -380,7 +383,7 @@ async def plan_run(
                 "summary": f"Plan status: {status}",
                 "text": plan_output[:TRUNCATE_OUTPUT]
             }
-            github_service.update_check_run(
+            github_client.update_check_run(
                 owner=owner,
                 repo=repo,
                 check_run_id=check_run_id,
@@ -438,7 +441,8 @@ async def plan_run(
 @app.post("/run/{run_id}/apply")
 async def apply_run(
     run_id: str,
-    storage_service: StorageService = Depends(get_storage_service_dependency)
+    storage_service: StorageService = Depends(get_storage_service_dependency),
+    github_client: GitHubClient = Depends(get_github_client_dependency)
 ):
     """Run 'terraform apply' for the given run_id using Terraform Cloud."""
     if sanitize_run_id(run_id):
@@ -467,7 +471,7 @@ async def apply_run(
         owner, repo = source_repo.split('/')
         
         # Create GitHub check run
-        check_run = github_service.create_check_run(
+        check_run = github_client.create_check_run(
             owner=owner,
             repo=repo,
             sha=external_ref,
@@ -541,7 +545,7 @@ async def apply_run(
                 "summary": f"Apply status: {status}",
                 "text": apply_output[:TRUNCATE_OUTPUT]
             }
-            github_service.update_check_run(
+            github_client.update_check_run(
                 owner=owner,
                 repo=repo,
                 check_run_id=check_run_id,
