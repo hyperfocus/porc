@@ -37,17 +37,9 @@ GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY", "")
 STORAGE_ACCOUNT = os.getenv("STORAGE_ACCOUNT")  # Azure storage account name
 STORAGE_ACCESS_KEY = os.getenv("STORAGE_ACCESS_KEY")  # Azure storage account access key
 STORAGE_BUCKET = os.getenv("STORAGE_BUCKET", "porcbundles")
-STORAGE_ENDPOINT = f"https://{STORAGE_ACCOUNT}.blob.core.windows.net" if STORAGE_ACCOUNT else None
 
 # Initialize storage service with configuration
-if STORAGE_ACCOUNT and STORAGE_ACCESS_KEY:
-    storage_service.configure(
-        endpoint=STORAGE_ENDPOINT,
-        access_key=STORAGE_ACCOUNT,  # Azure uses account name as access key
-        secret_key=STORAGE_ACCESS_KEY,  # Azure uses access key as secret
-        bucket=STORAGE_BUCKET
-    )
-else:
+if not STORAGE_ACCOUNT or not STORAGE_ACCESS_KEY:
     logging.warning("Storage service not configured - missing required environment variables")
 
 def sanitize_workspace_name(name: str) -> str:
