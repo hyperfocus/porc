@@ -57,11 +57,14 @@ class BlueprintSubmission(BaseModel):
 async def root():
     return {"status": "alive"}
 
-@app.get("/healthz")
-async def healthz():
+@app.get("/health")
+async def health():
     """Health check endpoint for Kubernetes liveness/readiness probes."""
     from fastapi.responses import JSONResponse
-    return JSONResponse(content={"status": "ok"})
+    logging.info("Health check endpoint called")
+    response = JSONResponse(content={"status": "ok"})
+    logging.info(f"Health check response: {response.body}")
+    return response
 
 @app.post("/blueprint")
 async def submit_blueprint(payload: BlueprintSubmission):

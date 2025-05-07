@@ -31,7 +31,7 @@ ingress:
   enabled: true
   className: "nginx"
   annotations:
-    nginx.ingress.kubernetes.io/healthcheck-path: /healthz
+    nginx.ingress.kubernetes.io/healthcheck-path: /health
     nginx.ingress.kubernetes.io/healthcheck-interval: "10s"
     nginx.ingress.kubernetes.io/healthcheck-timeout: "5s"
     nginx.ingress.kubernetes.io/healthcheck-fails: "3"

@@ -25,16 +25,16 @@ async def test_root(base_url, host_header, verify_ssl):
     assert resp.json() == {"status": "alive"}
 
 @pytest.mark.asyncio
-async def test_healthz(base_url, host_header, verify_ssl):
+async def test_health(base_url, host_header, verify_ssl):
     headers = {}
     if host_header:
         headers["Host"] = host_header
-    
+
     client = get_test_client(base_url, verify_ssl)
     if isinstance(client, AsyncClient):
-        resp = await client.get("/healthz", headers=headers)
+        resp = await client.get("/health", headers=headers)
     else:
-        resp = client.get("/healthz", headers=headers)
+        resp = client.get("/health", headers=headers)
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
 
