@@ -32,14 +32,23 @@ jobs:
         pools=$(az aks nodepool list           --resource-group "$RESOURCE_GROUP"           --cluster-name "$CLUSTER_NAME"           --query "[].name" -o tsv)
         echo "node_pools=$pools" >> $GITHUB_OUTPUT
 
-    - name: Scale node pools
+    - name: Scale node pools safely
       run: |
         for pool in ${{ steps.nodepools.outputs.node_pools }}; do
           if [[ "${{ github.event.inputs.scale_direction }}" == "down" ]]; then
-            count=0
+            echo "Checking autoscaler for pool: $pool"
+            autoscaler=$(az aks nodepool show               --resource-group "$RESOURCE_GROUP"               --cluster-name "$CLUSTER_NAME"               --name "$pool"               --query "enableAutoScaling" -o tsv)
+
+            if [[ "$autoscaler" == "true" ]]; then
+              echo "Disabling autoscaler for $pool..."
+              az aks nodepool update                 --resource-group "$RESOURCE_GROUP"                 --cluster-name "$CLUSTER_NAME"                 --name "$pool"                 --enable-cluster-autoscaler false
+            fi
+
+            echo "Scaling $pool to 0 nodes..."
+            az aks nodepool scale               --resource-group "$RESOURCE_GROUP"               --cluster-name "$CLUSTER_NAME"               --name "$pool"               --node-count 0
+
           else
-            count=${{ github.event.inputs.node_count }}
+            echo "Scaling $pool to ${{ github.event.inputs.node_count }} nodes..."
+            az aks nodepool scale               --resource-group "$RESOURCE_GROUP"               --cluster-name "$CLUSTER_NAME"               --name "$pool"               --node-count ${{ github.event.inputs.node_count }}
           fi
-          echo "Scaling $pool to $count nodes..."
-          az aks nodepool scale             --resource-group "$RESOURCE_GROUP"             --cluster-name "$CLUSTER_NAME"             --name "$pool"             --node-count "$count"
         done
