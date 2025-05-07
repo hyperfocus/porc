@@ -72,11 +72,13 @@ async def submit_blueprint(payload: BlueprintSubmission):
             "run_id": run_id,
             "timestamp": datetime.utcnow().isoformat(),
             "status": "submitted",
-            "blueprint": payload.model_dump(mode='json')  # Use mode='json' to handle datetime serialization
+            "blueprint": payload.model_dump(mode='json')
         }
         # Store in MongoDB if available
         if mongo_db is not None:
-            await mongo_db.blueprints.insert_one(record)
+            result = await mongo_db.blueprints.insert_one(record)
+            # Convert ObjectId to string for JSON serialization
+            record["_id"] = str(result.inserted_id)
             logging.info(f"Blueprint stored in MongoDB: {run_id}")
         # Still write to file for now as backup
         meta_file = f"{DB_PATH}/{run_id}.json"
