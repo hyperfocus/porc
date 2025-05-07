@@ -13,10 +13,8 @@ on:
         default: '1'
 
 env:
-  ACR_NAME: porcupine
   RESOURCE_GROUP: dev
   CLUSTER_NAME: porc
-  IMAGE_NAME: porc
 
 jobs:
   scale-aks:
