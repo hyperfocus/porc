@@ -39,6 +39,11 @@ spec:
               value: {{ .Values.tfe.env | quote }}
             - name: GITHUB_REPOSITORY
               value: {{ .Values.github.repository | quote }}
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: github-secrets
+                  key: github-token
             - name: STORAGE_ACCOUNT
               value: {{ .Values.storage.account | quote }}
             - name: STORAGE_ACCESS_KEY
