@@ -87,5 +87,6 @@ class StorageService:
         except ResourceNotFoundError:
             raise ValueError(f"QUILL template not found: {template_key}")
 
-# Initialize the storage service
-storage_service = StorageService() 
+def get_storage_service() -> StorageService:
+    """Get a storage service instance."""
+    return StorageService() 

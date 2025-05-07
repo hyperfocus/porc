@@ -19,7 +19,9 @@ import time
 from porc_core.quill import quill_manager
 from porc_core.github_client import github_client
 from porc_core.state import state_service, RunState
-from porc_core.storage import storage_service
+from porc_core.storage import storage_service, StorageService, get_storage_service
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 # Environment configuration
 class Environment(str, Enum):
@@ -44,6 +46,19 @@ if not STORAGE_ACCOUNT or not STORAGE_ACCESS_KEY:
 
 # Create FastAPI app
 app = FastAPI(title="PORC API")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Initialize services
+state_service = state_service
+github_service = github_client
 
 # Dependency for storage service
 def get_storage_service():
@@ -256,9 +271,6 @@ async def build_from_blueprint(run_id: str = Path(...)):
             content={"error": error_msg}
         )
 
-from fastapi.responses import JSONResponse
-from porc_common.config import RUNS_PATH
-
 @app.post("/run/{run_id}/plan")
 async def plan_run(run_id: str):
     """Run 'terraform plan' for the given run_id using Terraform Cloud."""
@@ -288,7 +300,7 @@ async def plan_run(run_id: str):
         owner, repo = source_repo.split('/')
         
         # Create GitHub check run
-        check_run = github_client.create_check_run(
+        check_run = github_service.create_check_run(
             owner=owner,
             repo=repo,
             sha=external_ref,
@@ -362,7 +374,7 @@ async def plan_run(run_id: str):
                 "summary": f"Plan status: {status}",
                 "text": plan_output[:TRUNCATE_OUTPUT]
             }
-            github_client.update_check_run(
+            github_service.update_check_run(
                 owner=owner,
                 repo=repo,
                 check_run_id=check_run_id,
@@ -446,7 +458,7 @@ async def apply_run(run_id: str):
         owner, repo = source_repo.split('/')
         
         # Create GitHub check run
-        check_run = github_client.create_check_run(
+        check_run = github_service.create_check_run(
             owner=owner,
             repo=repo,
             sha=external_ref,
@@ -520,7 +532,7 @@ async def apply_run(run_id: str):
                 "summary": f"Apply status: {status}",
                 "text": apply_output[:TRUNCATE_OUTPUT]
             }
-            github_client.update_check_run(
+            github_service.update_check_run(
                 owner=owner,
                 repo=repo,
                 check_run_id=check_run_id,
