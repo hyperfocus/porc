@@ -8,80 +8,83 @@ import tempfile
 import zipfile
 from typing import Dict, Any, Optional, BinaryIO
 from datetime import datetime
-import boto3
-from botocore.exceptions import ClientError
+from azure.storage.blob import BlobServiceClient, ContainerClient
+from azure.core.exceptions import ResourceNotFoundError
 
 class StorageService:
     def __init__(self, bucket_name: Optional[str] = None):
-        """Initialize storage service with S3 bucket."""
+        """Initialize storage service with Azure Blob Storage."""
         self.bucket_name = bucket_name or os.getenv("STORAGE_BUCKET")
         if not self.bucket_name:
             raise ValueError("Storage bucket name is required")
         
-        self.s3 = boto3.client('s3')
-        self._ensure_bucket_exists()
+        account_name = os.getenv("STORAGE_ACCOUNT")
+        account_key = os.getenv("STORAGE_ACCESS_KEY")
+        if not account_name or not account_key:
+            raise ValueError("Azure Storage account name and access key are required")
+        
+        connection_string = f"DefaultEndpointsProtocol=https;AccountName={account_name};AccountKey={account_key};EndpointSuffix=core.windows.net"
+        self.blob_service = BlobServiceClient.from_connection_string(connection_string)
+        self._ensure_container_exists()
     
-    def _ensure_bucket_exists(self):
-        """Ensure the storage bucket exists."""
+    def _ensure_container_exists(self):
+        """Ensure the storage container exists."""
         try:
-            self.s3.head_bucket(Bucket=self.bucket_name)
-        except ClientError as e:
-            if e.response['Error']['Code'] == '404':
-                self.s3.create_bucket(Bucket=self.bucket_name)
-                logging.info(f"Created storage bucket: {self.bucket_name}")
+            self.blob_service.get_container_client(self.bucket_name).get_container_properties()
+        except ResourceNotFoundError:
+            self.blob_service.create_container(self.bucket_name)
+            logging.info(f"Created storage container: {self.bucket_name}")
     
     def store_deployment_bundle(self, run_id: str, files: Dict[str, str]) -> str:
-        """Store deployment bundle in S3 and return the bundle key."""
+        """Store deployment bundle in Azure Blob Storage and return the bundle key."""
         # Create a temporary zip file
         with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as tmp:
             with zipfile.ZipFile(tmp.name, 'w') as zf:
                 for name, content in files.items():
                     zf.writestr(name, content)
         
-        # Upload to S3
+        # Upload to Azure Blob Storage
         bundle_key = f"bundles/{run_id}/{datetime.utcnow().isoformat()}.zip"
         try:
-            self.s3.upload_file(tmp.name, self.bucket_name, bundle_key)
+            blob_client = self.blob_service.get_blob_client(container=self.bucket_name, blob=bundle_key)
+            with open(tmp.name, 'rb') as data:
+                blob_client.upload_blob(data, overwrite=True)
             logging.info(f"Stored deployment bundle: {bundle_key}")
             return bundle_key
         finally:
             os.unlink(tmp.name)  # Clean up temp file
     
     def get_deployment_bundle(self, bundle_key: str) -> BinaryIO:
-        """Get deployment bundle from S3."""
+        """Get deployment bundle from Azure Blob Storage."""
         try:
-            response = self.s3.get_object(Bucket=self.bucket_name, Key=bundle_key)
-            return response['Body']
-        except ClientError as e:
-            if e.response['Error']['Code'] == 'NoSuchKey':
-                raise ValueError(f"Deployment bundle not found: {bundle_key}")
-            raise
+            blob_client = self.blob_service.get_blob_client(container=self.bucket_name, blob=bundle_key)
+            return blob_client.download_blob().readall()
+        except ResourceNotFoundError:
+            raise ValueError(f"Deployment bundle not found: {bundle_key}")
     
     def store_quill(self, kind: str, version: str, templates: Dict[str, str]) -> str:
-        """Store QUILL template in S3 and return the template key."""
+        """Store QUILL template in Azure Blob Storage and return the template key."""
         template_key = f"quills/{kind}/{version}/templates.json"
         try:
-            self.s3.put_object(
-                Bucket=self.bucket_name,
-                Key=template_key,
-                Body=json.dumps(templates),
-                ContentType='application/json'
+            blob_client = self.blob_service.get_blob_client(container=self.bucket_name, blob=template_key)
+            blob_client.upload_blob(
+                json.dumps(templates),
+                overwrite=True,
+                content_settings={'content_type': 'application/json'}
             )
             logging.info(f"Stored QUILL template: {template_key}")
             return template_key
-        except ClientError as e:
+        except Exception as e:
             raise ValueError(f"Failed to store QUILL template: {str(e)}")
     
     def get_quill(self, kind: str, version: str) -> Dict[str, str]:
-        """Get QUILL template from S3."""
+        """Get QUILL template from Azure Blob Storage."""
         template_key = f"quills/{kind}/{version}/templates.json"
         try:
-            response = self.s3.get_object(Bucket=self.bucket_name, Key=template_key)
-            return json.loads(response['Body'].read().decode('utf-8'))
-        except ClientError as e:
-            if e.response['Error']['Code'] == 'NoSuchKey':
-                raise ValueError(f"QUILL template not found: {template_key}")
-            raise
+            blob_client = self.blob_service.get_blob_client(container=self.bucket_name, blob=template_key)
+            return json.loads(blob_client.download_blob().readall().decode('utf-8'))
+        except ResourceNotFoundError:
+            raise ValueError(f"QUILL template not found: {template_key}")
 
 # Initialize the storage service
 storage_service = StorageService() 

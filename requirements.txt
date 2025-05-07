@@ -8,4 +8,4 @@ motor
 httpx
 pytest
 pytest-asyncio
-boto3
+azure-storage-blob
