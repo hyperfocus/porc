@@ -79,10 +79,10 @@ async def test_invalid_run_id(base_url, host_header, ignore_ssl):
     else:
         resp = client.post("/blueprint", headers=headers, json=blueprint)
     assert resp.status_code == 200
-    valid_run_id = resp.json()["run_id"]
+    run_id = resp.json()["run_id"]
     
     # Test invalid run ID format with special characters
-    invalid_run_id = valid_run_id.replace("-", ".")
+    invalid_run_id = "invalid.run.id"
     if isinstance(client, AsyncClient):
         resp = await client.get(f"/run/{invalid_run_id}/status", headers=headers)
     else:
@@ -91,7 +91,7 @@ async def test_invalid_run_id(base_url, host_header, ignore_ssl):
     assert resp.json()["error"] == "Invalid run_id"
 
     # Test another invalid format with spaces
-    invalid_run_id = valid_run_id.replace("-", " ")
+    invalid_run_id = "invalid run id"
     if isinstance(client, AsyncClient):
         resp = await client.get(f"/run/{invalid_run_id}/status", headers=headers)
     else:
@@ -100,7 +100,7 @@ async def test_invalid_run_id(base_url, host_header, ignore_ssl):
     assert resp.json()["error"] == "Invalid run_id"
 
     # Test invalid format without porc- prefix
-    invalid_run_id = valid_run_id.replace("porc-", "")
+    invalid_run_id = "20250507212126527"
     if isinstance(client, AsyncClient):
         resp = await client.get(f"/run/{invalid_run_id}/status", headers=headers)
     else:
@@ -109,7 +109,7 @@ async def test_invalid_run_id(base_url, host_header, ignore_ssl):
     assert resp.json()["error"] == "Invalid run_id"
 
     # Test invalid format with wrong timestamp length
-    invalid_run_id = valid_run_id[:-1]  # Remove last digit
+    invalid_run_id = "porc-20250507212126"
     if isinstance(client, AsyncClient):
         resp = await client.get(f"/run/{invalid_run_id}/status", headers=headers)
     else:
@@ -138,10 +138,10 @@ async def test_nonexistent_run_id(base_url, host_header, ignore_ssl):
     else:
         resp = client.post("/blueprint", headers=headers, json=blueprint)
     assert resp.status_code == 200
-    valid_run_id = resp.json()["run_id"]
+    run_id = resp.json()["run_id"]
     
-    # Modify the valid run_id to make it nonexistent
-    nonexistent_run_id = valid_run_id[:-1] + "9"  # Change last digit
+    # Test non-existent run ID
+    nonexistent_run_id = "porc-nonexistent"
     if isinstance(client, AsyncClient):
         resp = await client.get(f"/run/{nonexistent_run_id}/status", headers=headers)
     else:
