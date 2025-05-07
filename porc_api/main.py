@@ -60,8 +60,12 @@ async def root():
 @app.get("/healthz")
 async def healthz():
     """Health check endpoint for Kubernetes liveness/readiness probes."""
-    from fastapi.responses import JSONResponse
-    return JSONResponse(content={"status": "ok"})
+    from fastapi.responses import Response
+    import json
+    return Response(
+        content=json.dumps({"status": "ok"}),
+        media_type="application/json"
+    )
 
 @app.post("/blueprint")
 async def submit_blueprint(payload: BlueprintSubmission):
