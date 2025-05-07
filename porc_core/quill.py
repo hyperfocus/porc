@@ -6,7 +6,7 @@ import os
 import logging
 from jinja2 import Environment, FileSystemLoader
 from typing import Dict, Any
-from .storage import storage_service
+from .storage import get_storage_service
 
 class QuillManager:
     def __init__(self):
@@ -15,12 +15,13 @@ class QuillManager:
             trim_blocks=True,
             lstrip_blocks=True
         )
+        self.storage_service = get_storage_service()
     
     def get_quill(self, kind: str, version: str = "latest") -> Dict[str, str]:
         """Get the QUILL template for a given kind and version."""
         try:
             # Get template from storage
-            templates = storage_service.get_quill(kind, version)
+            templates = self.storage_service.get_quill(kind, version)
             
             # Create Jinja2 templates
             return {

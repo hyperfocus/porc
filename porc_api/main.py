@@ -19,7 +19,7 @@ import time
 from porc_core.quill import quill_manager
 from porc_core.github_client import github_client
 from porc_core.state import state_service, RunState
-from porc_core.storage import storage_service, StorageService, get_storage_service
+from porc_core.storage import StorageService, get_storage_service
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -61,8 +61,8 @@ state_service = state_service
 github_service = github_client
 
 # Dependency for storage service
-def get_storage_service():
-    return storage_service
+def get_storage_service_dependency() -> StorageService:
+    return get_storage_service()
 
 def sanitize_workspace_name(name: str) -> str:
     """Convert repository name to valid workspace name."""
@@ -200,7 +200,10 @@ async def submit_blueprint(payload: BlueprintSubmission):
         )
 
 @app.post("/run/{run_id}/build")
-async def build_from_blueprint(run_id: str = Path(...)):
+async def build_from_blueprint(
+    run_id: str = Path(...),
+    storage_service: StorageService = Depends(get_storage_service_dependency)
+):
     """Build files from a submitted blueprint for a given run_id."""
     if sanitize_run_id(run_id):
         return sanitize_run_id(run_id)
@@ -272,7 +275,10 @@ async def build_from_blueprint(run_id: str = Path(...)):
         )
 
 @app.post("/run/{run_id}/plan")
-async def plan_run(run_id: str):
+async def plan_run(
+    run_id: str,
+    storage_service: StorageService = Depends(get_storage_service_dependency)
+):
     """Run 'terraform plan' for the given run_id using Terraform Cloud."""
     if sanitize_run_id(run_id):
         return sanitize_run_id(run_id)
@@ -430,7 +436,10 @@ async def plan_run(run_id: str):
         )
 
 @app.post("/run/{run_id}/apply")
-async def apply_run(run_id: str):
+async def apply_run(
+    run_id: str,
+    storage_service: StorageService = Depends(get_storage_service_dependency)
+):
     """Run 'terraform apply' for the given run_id using Terraform Cloud."""
     if sanitize_run_id(run_id):
         return sanitize_run_id(run_id)
@@ -632,7 +641,10 @@ async def get_status(run_id: str):
         )
 
 @app.get("/run/{run_id}/summary")
-async def get_summary(run_id: str):
+async def get_summary(
+    run_id: str,
+    storage_service: StorageService = Depends(get_storage_service_dependency)
+):
     """Get a summary of a run, including status and file previews."""
     if sanitize_run_id(run_id):
         return sanitize_run_id(run_id)
