@@ -1,4 +1,5 @@
 import pytest
+import os
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -19,6 +20,16 @@ def pytest_addoption(parser):
         default=False,
         help="Ignore SSL certificate verification"
     )
+
+@pytest.fixture(autouse=True)
+def setup_test_env():
+    """Set up test environment variables."""
+    # These should be set in the CI environment or local .env file
+    required_vars = ["STORAGE_ACCOUNT", "STORAGE_ACCESS_KEY", "STORAGE_BUCKET"]
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    if missing_vars:
+        pytest.skip(f"Missing required environment variables: {', '.join(missing_vars)}")
+    yield
 
 @pytest.fixture
 def base_url(request):

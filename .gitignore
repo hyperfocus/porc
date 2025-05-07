@@ -2,3 +2,8 @@ __pycache__/
 .env
 *.tfvars.json
 *.zip
+
+# Test environment files
+tests/.env.test
+tests/.env.test.*
+!tests/.env.test.example
