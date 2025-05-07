@@ -69,7 +69,7 @@ async def submit_blueprint(payload: BlueprintSubmission):
         "run_id": run_id,
         "timestamp": datetime.utcnow().isoformat(),
         "status": "submitted",
-        "blueprint": payload.dict()
+        "blueprint": payload.model_dump()
     }
     # Store in MongoDB if available
     if mongo_db is not None:
