@@ -92,3 +92,123 @@ class TFEClient:
         if r.status_code != 200:
             logging.error(f"Failed to upload files to {upload_url}: {r.text}")
             raise TFEServiceError(r.status_code, f"{upload_url}: {r.text}")
+
+    def create_workspace(self, name, org, auto_apply=False, execution_mode="remote"):
+        """Create a new workspace in the organization."""
+        url = f"{self.host}/organizations/{org}/workspaces"
+        payload = {
+            "data": {
+                "type": "workspaces",
+                "attributes": {
+                    "name": name,
+                    "auto-apply": auto_apply,
+                    "execution-mode": execution_mode
+                }
+            }
+        }
+        r = self._request_with_retries("POST", url, json=payload)
+        if r.status_code != 201:
+            logging.error(f"Failed to create workspace {name}: {r.text}")
+            raise TFEServiceError(r.status_code, f"{url}: {r.text}")
+        data = r.json()
+        if "data" not in data or "id" not in data["data"]:
+            logging.error(f"Malformed response from {url}: {data}")
+            raise TFEServiceError(r.status_code, f"Malformed response from {url}: {data}")
+        return data["data"]["id"]
+
+    def create_run(self, workspace_id, config_version_id):
+        """Create a new run in the workspace."""
+        url = f"{self.host}/runs"
+        payload = {
+            "data": {
+                "type": "runs",
+                "attributes": {
+                    "auto-apply": True
+                },
+                "relationships": {
+                    "workspace": {
+                        "data": {
+                            "type": "workspaces",
+                            "id": workspace_id
+                        }
+                    },
+                    "configuration-version": {
+                        "data": {
+                            "type": "configuration-versions",
+                            "id": config_version_id
+                        }
+                    }
+                }
+            }
+        }
+        r = self._request_with_retries("POST", url, json=payload)
+        if r.status_code != 201:
+            logging.error(f"Failed to create run: {r.text}")
+            raise TFEServiceError(r.status_code, f"{url}: {r.text}")
+        data = r.json()
+        if "data" not in data or "id" not in data["data"]:
+            logging.error(f"Malformed response from {url}: {data}")
+            raise TFEServiceError(r.status_code, f"Malformed response from {url}: {data}")
+        return data["data"]["id"]
+
+    def wait_for_run(self, run_id):
+        """Wait for a run to complete and return its final status."""
+        url = f"{self.host}/runs/{run_id}"
+        while True:
+            r = self._request_with_retries("GET", url)
+            if r.status_code != 200:
+                logging.error(f"Failed to get run status: {r.text}")
+                raise TFEServiceError(r.status_code, f"{url}: {r.text}")
+            data = r.json()
+            if "data" not in data or "attributes" not in data["data"] or "status" not in data["data"]["attributes"]:
+                logging.error(f"Malformed response from {url}: {data}")
+                raise TFEServiceError(r.status_code, f"Malformed response from {url}: {data}")
+            status = data["data"]["attributes"]["status"]
+            if status in ["planned_and_finished", "applied", "errored", "canceled", "discarded"]:
+                return status
+            time.sleep(5)  # Wait 5 seconds before checking again
+
+    def get_plan_output(self, run_id):
+        """Get the plan output for a run."""
+        url = f"{self.host}/runs/{run_id}/plan"
+        r = self._request_with_retries("GET", url)
+        if r.status_code != 200:
+            logging.error(f"Failed to get plan output: {r.text}")
+            raise TFEServiceError(r.status_code, f"{url}: {r.text}")
+        data = r.json()
+        if "data" not in data or "attributes" not in data["data"] or "log-read-url" not in data["data"]["attributes"]:
+            logging.error(f"Malformed response from {url}: {data}")
+            raise TFEServiceError(r.status_code, f"Malformed response from {url}: {data}")
+        log_url = data["data"]["attributes"]["log-read-url"]
+        r = requests.get(log_url, timeout=self.timeout)
+        if r.status_code != 200:
+            logging.error(f"Failed to get plan log: {r.text}")
+            raise TFEServiceError(r.status_code, f"{log_url}: {r.text}")
+        return r.text
+
+    def get_apply_output(self, run_id):
+        """Get the apply output for a run."""
+        url = f"{self.host}/runs/{run_id}/apply"
+        r = self._request_with_retries("GET", url)
+        if r.status_code != 200:
+            logging.error(f"Failed to get apply output: {r.text}")
+            raise TFEServiceError(r.status_code, f"{url}: {r.text}")
+        data = r.json()
+        if "data" not in data or "attributes" not in data["data"] or "log-read-url" not in data["data"]["attributes"]:
+            logging.error(f"Malformed response from {url}: {data}")
+            raise TFEServiceError(r.status_code, f"Malformed response from {url}: {data}")
+        log_url = data["data"]["attributes"]["log-read-url"]
+        r = requests.get(log_url, timeout=self.timeout)
+        if r.status_code != 200:
+            logging.error(f"Failed to get apply log: {r.text}")
+            raise TFEServiceError(r.status_code, f"{log_url}: {r.text}")
+        return r.text
+
+    def apply_run(self, run_id):
+        """Apply a run that has been planned."""
+        url = f"{self.host}/runs/{run_id}/actions/apply"
+        r = self._request_with_retries("POST", url)
+        if r.status_code != 202:
+            logging.error(f"Failed to apply run: {r.text}")
+            raise TFEServiceError(r.status_code, f"{url}: {r.text}")
+        return True

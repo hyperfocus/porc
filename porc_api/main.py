@@ -68,7 +68,7 @@ def ensure_workspace_exists(tfe: TFEClient, workspace_name: str) -> str:
             logging.info(f"Creating workspace: {workspace_name}")
             return tfe.create_workspace(
                 name=workspace_name,
-                organization=TFE_ORG,
+                org=TFE_ORG,
                 auto_apply=True,  # Auto-apply for dev environment
                 execution_mode="remote"
             )
@@ -206,7 +206,7 @@ async def plan_run(run_id: str):
         # Initialize TFE client with configuration
         tfe = TFEClient(
             host=TFE_HOST,
-            organization=TFE_ORG
+            org=TFE_ORG
         )
         
         # Ensure workspace exists
@@ -288,7 +288,7 @@ async def apply_run(run_id: str):
         # Initialize TFE client with configuration
         tfe = TFEClient(
             host=TFE_HOST,
-            organization=TFE_ORG
+            org=TFE_ORG
         )
         
         # Ensure workspace exists
