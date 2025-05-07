@@ -1,0 +1,47 @@
+name: Scale AKS Node Pools
+
+on:
+  workflow_dispatch:
+    inputs:
+      scale_direction:
+        description: 'Scale direction (down=0, up=n)'
+        required: true
+        default: 'down'
+      node_count:
+        description: 'Node count if scaling up'
+        required: false
+        default: '1'
+
+env:
+  ACR_NAME: porcupine
+  RESOURCE_GROUP: dev
+  CLUSTER_NAME: porc
+  IMAGE_NAME: porc
+
+jobs:
+  scale-aks:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Log in to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Get list of node pools
+      id: nodepools
+      run: |
+        pools=$(az aks nodepool list           --resource-group "$RESOURCE_GROUP"           --cluster-name "$CLUSTER_NAME"           --query "[].name" -o tsv)
+        echo "node_pools=$pools" >> $GITHUB_OUTPUT
+
+    - name: Scale node pools
+      run: |
+        for pool in ${{ steps.nodepools.outputs.node_pools }}; do
+          if [[ "${{ github.event.inputs.scale_direction }}" == "down" ]]; then
+            count=0
+          else
+            count=${{ github.event.inputs.node_count }}
+          fi
+          echo "Scaling $pool to $count nodes..."
+          az aks nodepool scale             --resource-group "$RESOURCE_GROUP"             --cluster-name "$CLUSTER_NAME"             --name "$pool"             --node-count "$count"
+        done
