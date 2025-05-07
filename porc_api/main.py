@@ -60,35 +60,40 @@ async def root():
 @app.get("/healthz")
 async def healthz():
     """Health check endpoint for Kubernetes liveness/readiness probes."""
-    from fastapi.responses import Response
-    import json
-    return Response(
-        content=json.dumps({"status": "ok"}),
-        media_type="application/json"
-    )
+    from fastapi.responses import JSONResponse
+    return JSONResponse(content={"status": "ok"})
 
 @app.post("/blueprint")
 async def submit_blueprint(payload: BlueprintSubmission):
     """Submit a new blueprint and create a run record. Stores in MongoDB if configured."""
-    run_id = f"porc-{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')[:-3]}"
-    record = {
-        "run_id": run_id,
-        "timestamp": datetime.utcnow().isoformat(),
-        "status": "submitted",
-        "blueprint": payload.model_dump()
-    }
-    # Store in MongoDB if available
-    if mongo_db is not None:
-        await mongo_db.blueprints.insert_one(record)
-        logging.info(f"Blueprint stored in MongoDB: {run_id}")
-    # Still write to file for now as backup
-    meta_file = f"{DB_PATH}/{run_id}.json"
-    tmp_file = meta_file + ".tmp"
-    with open(tmp_file, "w") as f:
-        json.dump(record, f, indent=2)
-    os.replace(tmp_file, meta_file)
-    logging.info(f"Blueprint submitted: {run_id}")
-    return {"run_id": run_id, "status": "submitted"}
+    try:
+        run_id = f"porc-{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')[:-3]}"
+        record = {
+            "run_id": run_id,
+            "timestamp": datetime.utcnow().isoformat(),
+            "status": "submitted",
+            "blueprint": payload.model_dump(mode='json')  # Use mode='json' to handle datetime serialization
+        }
+        # Store in MongoDB if available
+        if mongo_db is not None:
+            await mongo_db.blueprints.insert_one(record)
+            logging.info(f"Blueprint stored in MongoDB: {run_id}")
+        # Still write to file for now as backup
+        meta_file = f"{DB_PATH}/{run_id}.json"
+        tmp_file = meta_file + ".tmp"
+        os.makedirs(DB_PATH, exist_ok=True)  # Ensure directory exists
+        with open(tmp_file, "w") as f:
+            json.dump(record, f, indent=2)
+        os.replace(tmp_file, meta_file)
+        logging.info(f"Blueprint submitted: {run_id}")
+        return {"run_id": run_id, "status": "submitted"}
+    except Exception as e:
+        logging.error(f"Error submitting blueprint: {str(e)}", exc_info=True)
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Failed to submit blueprint", "details": str(e)}
+        )
 
 @app.post("/run/{run_id}/build")
 async def build_from_blueprint(run_id: str = Path(...)):
