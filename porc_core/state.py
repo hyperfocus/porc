@@ -27,11 +27,14 @@ class StateService:
     def __init__(self, table_name: Optional[str] = None):
         """Initialize state service with Azure Table Storage."""
         self.table_name = table_name or os.getenv("PORC_STATE_TABLE", "porcstate")
-        self.connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-        if not self.connection_string:
-            raise ValueError("Azure Storage connection string is required")
         
-        self.table_service = TableServiceClient.from_connection_string(self.connection_string)
+        account_name = os.getenv("STORAGE_ACCOUNT")
+        account_key = os.getenv("STORAGE_ACCESS_KEY")
+        if not account_name or not account_key:
+            raise ValueError("Azure Storage account name and access key are required")
+        
+        connection_string = f"DefaultEndpointsProtocol=https;AccountName={account_name};AccountKey={account_key};EndpointSuffix=core.windows.net"
+        self.table_service = TableServiceClient.from_connection_string(connection_string)
         self.table_client = self._get_table_client()
         self._ensure_table_exists()
     
