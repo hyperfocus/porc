@@ -16,8 +16,8 @@ PORC is a centralized Terraform orchestrator designed to standardize blueprint s
 
 ## Documentation
 
-- [Backstage Integration](https://github.com/hyperfocus/porc/blob/main/docs/Backstage_Integration.md)
-- [Port Integration](https://github.com/hyperfocus/porc/blob/main/docs/Port_Integration.md)
+- [Backstage Integration](https://github.com/hyperfocus/porc/raw/main/docs/backstage_integration.md)
+- [Port Integration](https://github.com/hyperfocus/porc/raw/main/docs/port_integration.md)
 
 ## Audit & Observability
 
@@ -36,8 +36,8 @@ porc_api/
   porc_audit.py
   ...
 docs/
-  Backstage_Integration.md
-  Port_Integration.md
+  backstage_integration.md
+  port_integration.md
 ```
 
 ## Status Endpoints

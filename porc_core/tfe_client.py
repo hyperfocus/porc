@@ -30,7 +30,8 @@ class TFEClient:
     def __init__(self, token=TFE_TOKEN, host=TFE_HOST, org=TFE_ORG):
         """Initialize the TFEClient with authentication and API details."""
         self.token = token
-        self.host = host
+        # Ensure host has https scheme
+        self.host = host if host.startswith('http') else f'https://{host}'
         self.org = org
         self.headers = {
             "Authorization": f"Bearer {self.token}",
@@ -42,6 +43,10 @@ class TFEClient:
 
     def _request_with_retries(self, method, url, **kwargs):
         """Helper to perform HTTP requests with retries and timeout."""
+        # Ensure URL has https scheme if it's a relative path
+        if not url.startswith('http'):
+            url = f"{self.host}/{url.lstrip('/')}"
+            
         for attempt in range(self.max_retries):
             try:
                 response = requests.request(method, url, headers=self.headers, timeout=self.timeout, **kwargs)
