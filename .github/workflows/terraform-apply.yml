@@ -1,1 +1,68 @@
 name: Terraform Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+      run_id:
+        description: 'PORC run ID to apply (format: porc-YYYYMMDDHHMMSS)'
+        required: true
+        type: string
+        pattern: '^porc-\d{14}$'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate run_id
+        run: |
+          if [[ ! "${{ github.event.inputs.run_id }}" =~ ^porc-[0-9]{14}$ ]]; then
+            echo "Invalid run_id format. Must be in format: porc-YYYYMMDDHHMMSS"
+            exit 1
+          fi
+
+  apply:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "1.7.0"
+        
+    - name: Configure Azure credentials
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        
+    - name: Download Terraform files
+      uses: azure/cli@v1
+      with:
+        inlineScript: |
+          az storage blob download-batch \
+            --account-name ${{ secrets.STORAGE_ACCOUNT }} \
+            --auth-mode key \
+            --destination ./terraform \
+            --source porc-deployment-bundles/${{ github.event.inputs.run_id }}
+            
+    - name: Terraform Init
+      run: |
+        cd terraform
+        terraform init
+        
+    - name: Terraform Apply
+      run: |
+        cd terraform
+        terraform apply -auto-approve
+      env:
+        TF_VAR_environment: ${{ github.event.inputs.environment }}

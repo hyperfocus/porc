@@ -60,14 +60,29 @@ async def test_invalid_blueprint_submission(base_url, host_header, ignore_ssl):
 
 @pytest.mark.asyncio
 async def test_invalid_run_id(base_url, host_header, ignore_ssl):
-    headers = {}
+    headers = {"Content-Type": "application/json"}
     if host_header:
         headers["Host"] = host_header
     
     client = get_test_client(base_url, ignore_ssl)
     
+    # First get a valid run_id from blueprint submission
+    blueprint = {
+        "kind": "postgres-db",
+        "variables": {},
+        "schema_version": "1.0.0",
+        "external_reference": "test-pr-123",
+        "source_repo": "test-org/test-repo"
+    }
+    if isinstance(client, AsyncClient):
+        resp = await client.post("/blueprint", headers=headers, json=blueprint)
+    else:
+        resp = client.post("/blueprint", headers=headers, json=blueprint)
+    assert resp.status_code == 200
+    valid_run_id = resp.json()["run_id"]
+    
     # Test invalid run ID format with special characters
-    invalid_run_id = "invalid.run.id"
+    invalid_run_id = valid_run_id.replace("-", ".")
     if isinstance(client, AsyncClient):
         resp = await client.get(f"/run/{invalid_run_id}/status", headers=headers)
     else:
@@ -76,7 +91,25 @@ async def test_invalid_run_id(base_url, host_header, ignore_ssl):
     assert resp.json()["error"] == "Invalid run_id"
 
     # Test another invalid format with spaces
-    invalid_run_id = "invalid run id"
+    invalid_run_id = valid_run_id.replace("-", " ")
+    if isinstance(client, AsyncClient):
+        resp = await client.get(f"/run/{invalid_run_id}/status", headers=headers)
+    else:
+        resp = client.get(f"/run/{invalid_run_id}/status", headers=headers)
+    assert resp.status_code == 400
+    assert resp.json()["error"] == "Invalid run_id"
+
+    # Test invalid format without porc- prefix
+    invalid_run_id = valid_run_id.replace("porc-", "")
+    if isinstance(client, AsyncClient):
+        resp = await client.get(f"/run/{invalid_run_id}/status", headers=headers)
+    else:
+        resp = client.get(f"/run/{invalid_run_id}/status", headers=headers)
+    assert resp.status_code == 400
+    assert resp.json()["error"] == "Invalid run_id"
+
+    # Test invalid format with wrong timestamp length
+    invalid_run_id = valid_run_id[:-1]  # Remove last digit
     if isinstance(client, AsyncClient):
         resp = await client.get(f"/run/{invalid_run_id}/status", headers=headers)
     else:
@@ -86,14 +119,29 @@ async def test_invalid_run_id(base_url, host_header, ignore_ssl):
 
 @pytest.mark.asyncio
 async def test_nonexistent_run_id(base_url, host_header, ignore_ssl):
-    headers = {}
+    headers = {"Content-Type": "application/json"}
     if host_header:
         headers["Host"] = host_header
     
     client = get_test_client(base_url, ignore_ssl)
     
-    # Test non-existent run ID
-    nonexistent_run_id = "porc-nonexistent"
+    # First get a valid run_id from blueprint submission
+    blueprint = {
+        "kind": "postgres-db",
+        "variables": {},
+        "schema_version": "1.0.0",
+        "external_reference": "test-pr-123",
+        "source_repo": "test-org/test-repo"
+    }
+    if isinstance(client, AsyncClient):
+        resp = await client.post("/blueprint", headers=headers, json=blueprint)
+    else:
+        resp = client.post("/blueprint", headers=headers, json=blueprint)
+    assert resp.status_code == 200
+    valid_run_id = resp.json()["run_id"]
+    
+    # Modify the valid run_id to make it nonexistent
+    nonexistent_run_id = valid_run_id[:-1] + "9"  # Change last digit
     if isinstance(client, AsyncClient):
         resp = await client.get(f"/run/{nonexistent_run_id}/status", headers=headers)
     else:

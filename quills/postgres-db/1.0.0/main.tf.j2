@@ -7,7 +7,10 @@ provider "azurerm" {
 resource "azurerm_resource_group" "rg" {
   name     = "{{ resource_group_name }}"
   location = "{{ location }}"
-  tags     = {{ tags | to_json }}
+  tags = {
+    environment = "{{ environment }}"
+    application = "{{ app_name }}"
+  }
 }
 
 # Virtual Network
