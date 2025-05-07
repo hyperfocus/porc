@@ -8,7 +8,7 @@ def get_env(name, default=None, required=False):
 
 # Example config usage
 TFE_TOKEN = get_env("TFE_TOKEN", required=True)
-TFE_HOST = get_env("TFE_HOST", "https://app.terraform.io/api/v2")
+TFE_API = get_env("TFE_API", "https://app.terraform.io/api/v2")
 TFE_ORG = get_env("TFE_ORG", "td-organization")
 
 # Runtime paths

@@ -31,8 +31,8 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.tfe.tokenSecretName }}
                   key: TFE_TOKEN
-            - name: TFE_HOST
-              value: {{ .Values.tfe.host | quote }}
+            - name: TFE_API
+              value: {{ .Values.tfe.api | quote }}
             - name: TFE_ORG
               value: {{ .Values.tfe.org | quote }}
             - name: TFE_ENV

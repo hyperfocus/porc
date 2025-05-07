@@ -16,6 +16,28 @@ PORC consists of:
 
 ---
 
+## Configuration
+
+### Environment Variables
+
+Required environment variables:
+- `TFE_TOKEN`: Terraform Cloud API token
+- `TFE_API`: Terraform Cloud API URL (default: https://app.terraform.io/api/v2)
+- `TFE_ORG`: Terraform Cloud organization name
+- `TFE_ENV`: Environment name (e.g., dev, prod)
+- `MONGO_URI`: MongoDB connection string
+- `GITHUB_REPOSITORY`: GitHub repository name
+
+### Terraform Enterprise Integration
+
+The PORC API communicates with Terraform Enterprise using:
+- API URL: Configured via `TFE_API` environment variable
+- Authentication: Bearer token via `TFE_TOKEN`
+- Organization: Specified by `TFE_ORG`
+- Workspace naming: `{org}-{env}` (e.g., `porc_test-dev`)
+
+---
+
 ## Mermaid Flow Diagram (Corrected)
 
 ```mermaid

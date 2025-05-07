@@ -6,7 +6,7 @@ import time
 import logging
 import sys
 import json
-from porc_common.config import TFE_TOKEN, TFE_HOST, TFE_ORG
+from porc_common.config import TFE_TOKEN, TFE_API, TFE_ORG
 from porc_common.errors import TFEServiceError
 
 class JsonFormatter(logging.Formatter):
@@ -27,11 +27,11 @@ logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
 
 class TFEClient:
     """Client for interacting with the Terraform Enterprise (TFE) API."""
-    def __init__(self, token=TFE_TOKEN, host=TFE_HOST, org=TFE_ORG):
+    def __init__(self, token=TFE_TOKEN, api_url=TFE_API, org=TFE_ORG):
         """Initialize the TFEClient with authentication and API details."""
         self.token = token
-        # Ensure host has https scheme
-        self.host = host if host.startswith('http') else f'https://{host}'
+        # Ensure API URL has https scheme
+        self.api_url = api_url if api_url.startswith('http') else f'https://{api_url}'
         self.org = org
         self.headers = {
             "Authorization": f"Bearer {self.token}",
@@ -45,7 +45,7 @@ class TFEClient:
         """Helper to perform HTTP requests with retries and timeout."""
         # Ensure URL has https scheme if it's a relative path
         if not url.startswith('http'):
-            url = f"{self.host}/{url.lstrip('/')}"
+            url = f"{self.api_url}/{url.lstrip('/')}"
             
         for attempt in range(self.max_retries):
             try:
@@ -60,7 +60,7 @@ class TFEClient:
 
     def get_workspace_id(self, name):
         """Get the workspace ID for a given workspace name."""
-        url = f"{self.host}/organizations/{self.org}/workspaces/{name}"
+        url = f"{self.api_url}/organizations/{self.org}/workspaces/{name}"
         r = self._request_with_retries("GET", url)
         if r.status_code != 200:
             logging.error(f"Failed to get workspace ID for {name}: {r.text}")
@@ -73,7 +73,7 @@ class TFEClient:
 
     def create_config_version(self, workspace_id):
         """Create a new configuration version for a workspace."""
-        url = f"{self.host}/workspaces/{workspace_id}/configuration-versions"
+        url = f"{self.api_url}/workspaces/{workspace_id}/configuration-versions"
         payload = {
             "data": {
                 "type": "configuration-versions",
@@ -100,7 +100,7 @@ class TFEClient:
 
     def create_workspace(self, name, org, auto_apply=False, execution_mode="remote"):
         """Create a new workspace in the organization."""
-        url = f"{self.host}/organizations/{org}/workspaces"
+        url = f"{self.api_url}/organizations/{org}/workspaces"
         payload = {
             "data": {
                 "type": "workspaces",
@@ -123,7 +123,7 @@ class TFEClient:
 
     def create_run(self, workspace_id, config_version_id):
         """Create a new run in the workspace."""
-        url = f"{self.host}/runs"
+        url = f"{self.api_url}/runs"
         payload = {
             "data": {
                 "type": "runs",
@@ -158,7 +158,7 @@ class TFEClient:
 
     def wait_for_run(self, run_id):
         """Wait for a run to complete and return its final status."""
-        url = f"{self.host}/runs/{run_id}"
+        url = f"{self.api_url}/runs/{run_id}"
         while True:
             r = self._request_with_retries("GET", url)
             if r.status_code != 200:
@@ -175,7 +175,7 @@ class TFEClient:
 
     def get_plan_output(self, run_id):
         """Get the plan output for a run."""
-        url = f"{self.host}/runs/{run_id}/plan"
+        url = f"{self.api_url}/runs/{run_id}/plan"
         r = self._request_with_retries("GET", url)
         if r.status_code != 200:
             logging.error(f"Failed to get plan output: {r.text}")
@@ -193,7 +193,7 @@ class TFEClient:
 
     def get_apply_output(self, run_id):
         """Get the apply output for a run."""
-        url = f"{self.host}/runs/{run_id}/apply"
+        url = f"{self.api_url}/runs/{run_id}/apply"
         r = self._request_with_retries("GET", url)
         if r.status_code != 200:
             logging.error(f"Failed to get apply output: {r.text}")
@@ -211,7 +211,7 @@ class TFEClient:
 
     def apply_run(self, run_id):
         """Apply a run that has been planned."""
-        url = f"{self.host}/runs/{run_id}/actions/apply"
+        url = f"{self.api_url}/runs/{run_id}/actions/apply"
         r = self._request_with_retries("POST", url)
         if r.status_code != 202:
             logging.error(f"Failed to apply run: {r.text}")
