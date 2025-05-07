@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: porcupine.azurecr.io/porc
+  repository: porc
   tag: latest
   pullPolicy: IfNotPresent
 
@@ -14,27 +14,31 @@ imagePullSecrets:
 
 # Terraform Enterprise configuration
 tfe:
-  api: "https://app.terraform.io/api/v2"
-  org: "porc_test"
-  env: "dev"
+  api: https://app.terraform.io/api/v2
+  org: porc_test
+  env: dev
   tokenSecretName: tfe-secrets
 
 # GitHub configuration
 github:
-  repository: "porc_test/porc"
+  repository: ""
 
 service:
   type: ClusterIP
   port: 80
   targetPort: 8000
 
+storage:
+  account: ""  # Azure storage account name
+  bucket: porcbundles  # Azure blob container name
+
 resources:
   limits:
-    cpu: 250m
+    cpu: 500m
     memory: 512Mi
   requests:
     cpu: 100m
-    memory: 256Mi
+    memory: 128Mi
 
 ingress:
   enabled: true

@@ -1,0 +1,33 @@
+# QUILL Template for Postgres Database
+# This template enforces our golden path for Postgres databases
+
+module "postgres_db" {
+  source = "git::https://git.td.com/terraform-modules/postgres.git"
+
+  # Required variables from blueprint
+  db_name = "{{ db_name }}"
+  db_user = "{{ db_user }}"
+  plan    = "{{ plan }}"
+
+  # Enforced golden path settings
+  backup_retention_days = 7
+  backup_window        = "03:00-04:00"
+  maintenance_window   = "sun:04:00-sun:05:00"
+  
+  # Security settings
+  ssl_required = true
+  encryption   = true
+  
+  # Performance
+  max_connections = 100
+  storage_size    = 100
+  storage_type    = "gp2"
+  
+  # Monitoring
+  enable_performance_insights = true
+  performance_insights_retention_period = 7
+  
+  # Tags
+  environment = "{{ environment }}"
+  managed_by  = "porc"
+} 

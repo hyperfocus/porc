@@ -27,6 +27,9 @@ Required environment variables:
 - `TFE_ENV`: Environment name (e.g., dev, prod)
 - `MONGO_URI`: MongoDB connection string
 - `GITHUB_REPOSITORY`: GitHub repository name
+- `STORAGE_ACCOUNT`: Azure Storage account name
+- `STORAGE_ACCESS_KEY`: Azure Storage account access key
+- `STORAGE_BUCKET`: Azure Blob container name (default: porcbundles)
 
 ### Terraform Enterprise Integration
 
@@ -35,6 +38,14 @@ The PORC API communicates with Terraform Enterprise using:
 - Authentication: Bearer token via `TFE_TOKEN`
 - Organization: Specified by `TFE_ORG`
 - Workspace naming: `{org}-{env}` (e.g., `porc_test-dev`)
+
+### Azure Blob Storage Integration
+
+The PORC API uses Azure Blob Storage for:
+- Storing deployment bundles (rendered Terraform files)
+- Retrieving bundles for plan and apply operations
+- Container name: `porcbundles` (configurable via `STORAGE_BUCKET`)
+- Authentication: Storage account name and access key
 
 ---
 
@@ -58,6 +69,10 @@ flowchart LR
 
   E --> K[Logs + Metadata Store]
   K --> L[Reports, Metrics, Callbacks]
+  
+  E --> M[Azure Blob Storage]
+  M -->|Store| N[Deployment Bundles]
+  M -->|Retrieve| O[Terraform Files]
 ```
 
 ```
@@ -86,9 +101,11 @@ Developer --> GitHub Repo --> Port Blueprint --> [Kafka or Webhook]
 ### Rendering
 - PINE is used to validate blueprint schema and submit it to Port
 - Output files: `main.tf`, `terraform.tfvars.json`
+- Files are bundled and stored in Azure Blob Storage
 
 ### Execution
-- PORC pushes files to Terraform Enterprise using remote workspaces
+- PORC retrieves deployment bundle from Azure Blob Storage
+- Pushes files to Terraform Enterprise using remote workspaces
 - Sentinel enforces policy before apply
 
 ### Reporting
@@ -101,7 +118,7 @@ Developer --> GitHub Repo --> Port Blueprint --> [Kafka or Webhook]
 ## Persistence and State
 
 - Metadata: `/tmp/porc-metadata/{run_id}.json`
-- Rendered files: `/tmp/porc-runs/{run_id}/`
+- Deployment Bundles: Azure Blob Storage container `porcbundles`
 - Logs: `/tmp/porc-logs/{run_id}.log.jsonl`
 
 ---

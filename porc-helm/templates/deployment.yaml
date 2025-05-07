@@ -39,5 +39,33 @@ spec:
               value: {{ .Values.tfe.env | quote }}
             - name: GITHUB_REPOSITORY
               value: {{ .Values.github.repository | quote }}
+            - name: STORAGE_ACCOUNT
+              value: {{ .Values.storage.account | quote }}
+            - name: STORAGE_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: storage-secrets
+                  key: storage-access-key
+            - name: STORAGE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: porc-secrets
+                  key: storage-secret-key
+            - name: STORAGE_BUCKET
+              value: {{ .Values.storage.bucket | default "porc-deployment-bundles" | quote }}
+            - name: STORAGE_REGION
+              value: {{ .Values.storage.region | default "us-east-1" | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10

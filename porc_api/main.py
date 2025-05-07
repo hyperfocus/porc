@@ -15,6 +15,11 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from porc_core.tfe_client import TFEClient
 from porc_common.errors import TFEServiceError
 from enum import Enum
+import time
+from porc_core.quill import quill_manager
+from porc_core.github_client import github_client
+from porc_core.state import state_service, RunState
+from porc_core.storage import storage_service
 
 # Environment configuration
 class Environment(str, Enum):
@@ -27,6 +32,23 @@ TFE_API = os.getenv("TFE_API", "https://app.terraform.io/api/v2")
 TFE_ORG = os.getenv("TFE_ORG", "porc_test")  # Default to porc_test organization
 TFE_ENV = os.getenv("TFE_ENV", Environment.DEV.value)
 GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY", "")
+
+# Storage configuration
+STORAGE_ACCOUNT = os.getenv("STORAGE_ACCOUNT")  # Azure storage account name
+STORAGE_ACCESS_KEY = os.getenv("STORAGE_ACCESS_KEY")  # Azure storage account access key
+STORAGE_BUCKET = os.getenv("STORAGE_BUCKET", "porcbundles")
+STORAGE_ENDPOINT = f"https://{STORAGE_ACCOUNT}.blob.core.windows.net" if STORAGE_ACCOUNT else None
+
+# Initialize storage service with configuration
+if STORAGE_ACCOUNT and STORAGE_ACCESS_KEY:
+    storage_service.configure(
+        endpoint=STORAGE_ENDPOINT,
+        access_key=STORAGE_ACCOUNT,  # Azure uses account name as access key
+        secret_key=STORAGE_ACCESS_KEY,  # Azure uses access key as secret
+        bucket=STORAGE_BUCKET
+    )
+else:
+    logging.warning("Storage service not configured - missing required environment variables")
 
 def sanitize_workspace_name(name: str) -> str:
     """Convert repository name to valid workspace name."""
@@ -113,6 +135,8 @@ class BlueprintSubmission(BaseModel):
     kind: str
     variables: dict = {}
     schema_version: str | None = None
+    external_reference: str  # e.g. GitHub PR reference
+    source_repo: str  # The GitHub repository where the blueprint was submitted from
 
 @app.get("/")
 async def root():
@@ -136,7 +160,9 @@ async def submit_blueprint(payload: BlueprintSubmission):
             "run_id": run_id,
             "timestamp": datetime.utcnow().isoformat(),
             "status": "submitted",
-            "blueprint": payload.model_dump(mode='json')
+            "blueprint": payload.model_dump(mode='json'),
+            "external_reference": payload.external_reference,
+            "source_repo": payload.source_repo
         }
         # Store in MongoDB if available
         if mongo_db is not None:
@@ -166,26 +192,72 @@ async def build_from_blueprint(run_id: str = Path(...)):
     """Build files from a submitted blueprint for a given run_id."""
     if sanitize_run_id(run_id):
         return sanitize_run_id(run_id)
-    meta_file = f"{DB_PATH}/{run_id}.json"
-    if not os.path.exists(meta_file):
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=404, content={"error": "Run ID not found"})
-    with open(meta_file) as f:
-        record = json.load(f)
-    files = render_blueprint(record["blueprint"])
-    from porc_common.config import RUNS_PATH
-    out_dir = f"{RUNS_PATH}/{run_id}"
-    os.makedirs(out_dir, exist_ok=True)
-    for name, content in files.items():
-        with open(f"{out_dir}/{name}", "w") as f:
-            f.write(content)
-    record["status"] = "built"
-    tmp_file = meta_file + ".tmp"
-    with open(tmp_file, "w") as f:
-        json.dump(record, f, indent=2)
-    os.replace(tmp_file, meta_file)
-    logging.info(f"Blueprint built: {run_id}")
-    return {"run_id": run_id, "status": "built"}
+    
+    try:
+        # Get the blueprint record
+        meta_file = f"{DB_PATH}/{run_id}.json"
+        if not os.path.exists(meta_file):
+            return JSONResponse(status_code=404, content={"error": "Run ID not found"})
+        
+        with open(meta_file) as f:
+            record = json.load(f)
+        
+        # Update state to BUILDING
+        state_service.update_state(run_id, RunState.BUILDING)
+        
+        # Get blueprint details
+        blueprint = record["blueprint"]
+        kind = blueprint["kind"]
+        variables = blueprint["variables"]
+        
+        try:
+            # Render the QUILL template with blueprint variables
+            files = quill_manager.render_quill(kind, variables)
+            
+            # Store the deployment bundle
+            bundle_key = storage_service.store_deployment_bundle(run_id, files)
+            
+            # Update record with bundle key
+            record["bundle_key"] = bundle_key
+            record["status"] = "built"
+            tmp_file = meta_file + ".tmp"
+            with open(tmp_file, "w") as f:
+                json.dump(record, f, indent=2)
+            os.replace(tmp_file, meta_file)
+            
+            # Update state to BUILT
+            state_service.update_state(
+                run_id, 
+                RunState.BUILT,
+                metadata={"bundle_key": bundle_key}
+            )
+            
+            logging.info(f"Blueprint built: {run_id}")
+            return {"run_id": run_id, "status": "built", "bundle_key": bundle_key}
+            
+        except ValueError as e:
+            # Update state to indicate build failure
+            state_service.update_state(
+                run_id,
+                RunState.PLAN_FAILED,  # Reuse plan_failed state for build failures
+                metadata={"error": str(e)}
+            )
+            raise
+            
+    except ValueError as e:
+        error_msg = str(e)
+        logging.error(error_msg)
+        return JSONResponse(
+            status_code=400,
+            content={"error": error_msg}
+        )
+    except Exception as e:
+        error_msg = f"Error building blueprint: {str(e)}"
+        logging.error(error_msg)
+        return JSONResponse(
+            status_code=500,
+            content={"error": error_msg}
+        )
 
 from fastapi.responses import JSONResponse
 from porc_common.config import RUNS_PATH
@@ -195,61 +267,137 @@ async def plan_run(run_id: str):
     """Run 'terraform plan' for the given run_id using Terraform Cloud."""
     if sanitize_run_id(run_id):
         return sanitize_run_id(run_id)
-    run_dir = f"{RUNS_PATH}/{run_id}"
-    if not os.path.exists(run_dir):
-        return JSONResponse(status_code=404, content={"error": "Run files not found"})
     
     try:
+        # Get the blueprint record
+        meta_file = f"{DB_PATH}/{run_id}.json"
+        if not os.path.exists(meta_file):
+            return JSONResponse(status_code=404, content={"error": "Run ID not found"})
+        
+        with open(meta_file) as f:
+            record = json.load(f)
+        
+        # Get current state
+        current_state = state_service.get_state(run_id)
+        if not current_state or current_state.get("state") != RunState.BUILT.value:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Run must be in BUILT state, current state: {current_state.get('state') if current_state else 'unknown'}"}
+            )
+        
+        # Extract GitHub info
+        source_repo = record["source_repo"]
+        external_ref = record["external_reference"]
+        owner, repo = source_repo.split('/')
+        
+        # Create GitHub check run
+        check_run = github_client.create_check_run(
+            owner=owner,
+            repo=repo,
+            sha=external_ref,
+            name="PORC Terraform Plan"
+        )
+        check_run_id = check_run["id"]
+        
         # Get workspace name based on GitHub repository and environment
         workspace_name = get_workspace_name()
         
-        # Initialize TFE client with configuration
-        tfe = TFEClient(
-            api_url=TFE_API,
-            org=TFE_ORG
-        )
+        # Try to acquire workspace lock
+        if not state_service.acquire_lock(workspace_name, run_id):
+            return JSONResponse(
+                status_code=409,
+                content={"error": f"Workspace {workspace_name} is locked by another operation"}
+            )
         
-        # Ensure workspace exists
-        workspace_id = ensure_workspace_exists(tfe, workspace_name)
-        
-        # Create a new configuration version
-        config_version_id, upload_url = tfe.create_config_version(workspace_id)
-        
-        # Create a zip of the terraform files
-        import zipfile
-        import tempfile
-        with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as tmp:
-            with zipfile.ZipFile(tmp.name, 'w') as zf:
-                for root, _, files in os.walk(run_dir):
-                    for file in files:
-                        if file.endswith('.tf'):
-                            zf.write(os.path.join(root, file), 
-                                   os.path.relpath(os.path.join(root, file), run_dir))
-        
-        # Upload the configuration
-        tfe.upload_files(upload_url, tmp.name)
-        os.unlink(tmp.name)  # Clean up temp file
-        
-        # Create and start a run
-        tfe_run_id = tfe.create_run(workspace_id, config_version_id)
-        
-        # Wait for the run to complete
-        status = tfe.wait_for_run(tfe_run_id)
-        
-        # Get the plan output
-        plan_output = tfe.get_plan_output(tfe_run_id)
-        
-        # Save the output
-        with open(f"{run_dir}/plan.out", "w") as f:
-            f.write(plan_output)
-        
-        return {
-            "run_id": run_id,
-            "tfe_run_id": tfe_run_id,
-            "workspace": workspace_name,
-            "status": "planned" if status == "planned_and_finished" else "plan_failed",
-            "output": plan_output[:TRUNCATE_OUTPUT]
-        }
+        try:
+            # Update state to PLANNING
+            state_service.update_state(
+                run_id,
+                RunState.PLANNING,
+                workspace=workspace_name,
+                metadata={"check_run_id": check_run_id}
+            )
+            
+            # Initialize TFE client with configuration
+            tfe = TFEClient(
+                api_url=TFE_API,
+                org=TFE_ORG
+            )
+            
+            # Ensure workspace exists
+            workspace_id = ensure_workspace_exists(tfe, workspace_name)
+            
+            # Create a new configuration version
+            config_version_id, upload_url = tfe.create_config_version(workspace_id)
+            
+            # Get deployment bundle from storage
+            bundle_key = record["bundle_key"]
+            bundle = storage_service.get_deployment_bundle(bundle_key)
+            
+            # Upload the configuration
+            tfe.upload_files(upload_url, bundle)
+            
+            # Wait for configuration version to be processed
+            max_retries = 10
+            retry_delay = 2
+            for attempt in range(max_retries):
+                try:
+                    # Create and start a run
+                    tfe_run_id = tfe.create_run(workspace_id, config_version_id)
+                    break
+                except TFEServiceError as e:
+                    if "Configuration version is still being processed" in str(e) and attempt < max_retries - 1:
+                        logging.info(f"Configuration version still processing, attempt {attempt + 1}/{max_retries}")
+                        time.sleep(retry_delay)
+                        continue
+                    raise
+            
+            # Wait for the run to complete
+            status = tfe.wait_for_run(tfe_run_id)
+            
+            # Get the plan output
+            plan_output = tfe.get_plan_output(tfe_run_id)
+            
+            # Update GitHub check run
+            conclusion = "success" if status == "planned_and_finished" else "failure"
+            output = {
+                "title": "Terraform Plan",
+                "summary": f"Plan status: {status}",
+                "text": plan_output[:TRUNCATE_OUTPUT]
+            }
+            github_client.update_check_run(
+                owner=owner,
+                repo=repo,
+                check_run_id=check_run_id,
+                status="completed",
+                conclusion=conclusion,
+                output=output
+            )
+            
+            # Update state based on plan result
+            new_state = RunState.PLANNED if status == "planned_and_finished" else RunState.PLAN_FAILED
+            state_service.update_state(
+                run_id,
+                new_state,
+                workspace=workspace_name,
+                metadata={
+                    "tfe_run_id": tfe_run_id,
+                    "plan_output": plan_output[:TRUNCATE_OUTPUT]
+                }
+            )
+            
+            return {
+                "run_id": run_id,
+                "tfe_run_id": tfe_run_id,
+                "workspace": workspace_name,
+                "status": new_state.value,
+                "output": plan_output[:TRUNCATE_OUTPUT]
+            }
+            
+        finally:
+            # Always release the workspace lock
+            state_service.release_lock(workspace_name, run_id)
+            
     except ValueError as e:
         error_msg = str(e)
         logging.error(error_msg)
@@ -277,43 +425,137 @@ async def apply_run(run_id: str):
     """Run 'terraform apply' for the given run_id using Terraform Cloud."""
     if sanitize_run_id(run_id):
         return sanitize_run_id(run_id)
-    run_dir = f"{RUNS_PATH}/{run_id}"
-    if not os.path.exists(run_dir):
-        return JSONResponse(status_code=404, content={"error": "Run files not found"})
     
     try:
+        # Get the blueprint record
+        meta_file = f"{DB_PATH}/{run_id}.json"
+        if not os.path.exists(meta_file):
+            return JSONResponse(status_code=404, content={"error": "Run ID not found"})
+        
+        with open(meta_file) as f:
+            record = json.load(f)
+        
+        # Get current state
+        current_state = state_service.get_state(run_id)
+        if not current_state or current_state.get("state") != RunState.PLANNED.value:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Run must be in PLANNED state, current state: {current_state.get('state') if current_state else 'unknown'}"}
+            )
+        
+        # Extract GitHub info
+        source_repo = record["source_repo"]
+        external_ref = record["external_reference"]
+        owner, repo = source_repo.split('/')
+        
+        # Create GitHub check run
+        check_run = github_client.create_check_run(
+            owner=owner,
+            repo=repo,
+            sha=external_ref,
+            name="PORC Terraform Apply"
+        )
+        check_run_id = check_run["id"]
+        
         # Get workspace name based on GitHub repository and environment
         workspace_name = get_workspace_name()
         
-        # Initialize TFE client with configuration
-        tfe = TFEClient(
-            api_url=TFE_API,
-            org=TFE_ORG
-        )
+        # Try to acquire workspace lock
+        if not state_service.acquire_lock(workspace_name, run_id):
+            return JSONResponse(
+                status_code=409,
+                content={"error": f"Workspace {workspace_name} is locked by another operation"}
+            )
         
-        # Ensure workspace exists
-        workspace_id = ensure_workspace_exists(tfe, workspace_name)
-        
-        # Apply the run
-        tfe.apply_run(run_id)
-        
-        # Wait for the apply to complete
-        status = tfe.wait_for_run(run_id)
-        
-        # Get the apply output
-        apply_output = tfe.get_apply_output(run_id)
-        
-        # Save the output
-        with open(f"{run_dir}/apply.out", "w") as f:
-            f.write(apply_output)
-        
-        return {
-            "run_id": run_id,
-            "tfe_run_id": run_id,
-            "workspace": workspace_name,
-            "status": "applied" if status == "applied" else "apply_failed",
-            "output": apply_output[:TRUNCATE_OUTPUT]
-        }
+        try:
+            # Update state to APPLYING
+            state_service.update_state(
+                run_id,
+                RunState.APPLYING,
+                workspace=workspace_name,
+                metadata={"check_run_id": check_run_id}
+            )
+            
+            # Initialize TFE client with configuration
+            tfe = TFEClient(
+                api_url=TFE_API,
+                org=TFE_ORG
+            )
+            
+            # Ensure workspace exists
+            workspace_id = ensure_workspace_exists(tfe, workspace_name)
+            
+            # Create a new configuration version
+            config_version_id, upload_url = tfe.create_config_version(workspace_id)
+            
+            # Get deployment bundle from storage
+            bundle_key = record["bundle_key"]
+            bundle = storage_service.get_deployment_bundle(bundle_key)
+            
+            # Upload the configuration
+            tfe.upload_files(upload_url, bundle)
+            
+            # Wait for configuration version to be processed
+            max_retries = 10
+            retry_delay = 2
+            for attempt in range(max_retries):
+                try:
+                    # Create and start a run
+                    tfe_run_id = tfe.create_run(workspace_id, config_version_id)
+                    break
+                except TFEServiceError as e:
+                    if "Configuration version is still being processed" in str(e) and attempt < max_retries - 1:
+                        logging.info(f"Configuration version still processing, attempt {attempt + 1}/{max_retries}")
+                        time.sleep(retry_delay)
+                        continue
+                    raise
+            
+            # Wait for the run to complete
+            status = tfe.wait_for_run(tfe_run_id)
+            
+            # Get the apply output
+            apply_output = tfe.get_apply_output(tfe_run_id)
+            
+            # Update GitHub check run
+            conclusion = "success" if status == "applied" else "failure"
+            output = {
+                "title": "Terraform Apply",
+                "summary": f"Apply status: {status}",
+                "text": apply_output[:TRUNCATE_OUTPUT]
+            }
+            github_client.update_check_run(
+                owner=owner,
+                repo=repo,
+                check_run_id=check_run_id,
+                status="completed",
+                conclusion=conclusion,
+                output=output
+            )
+            
+            # Update state based on apply result
+            new_state = RunState.APPLIED if status == "applied" else RunState.APPLY_FAILED
+            state_service.update_state(
+                run_id,
+                new_state,
+                workspace=workspace_name,
+                metadata={
+                    "tfe_run_id": tfe_run_id,
+                    "apply_output": apply_output[:TRUNCATE_OUTPUT]
+                }
+            )
+            
+            return {
+                "run_id": run_id,
+                "tfe_run_id": tfe_run_id,
+                "workspace": workspace_name,
+                "status": new_state.value,
+                "output": apply_output[:TRUNCATE_OUTPUT]
+            }
+            
+        finally:
+            # Always release the workspace lock
+            state_service.release_lock(workspace_name, run_id)
+            
     except ValueError as e:
         error_msg = str(e)
         logging.error(error_msg)
@@ -341,28 +583,97 @@ async def get_status(run_id: str):
     """Get the status of a run by run_id."""
     if sanitize_run_id(run_id):
         return sanitize_run_id(run_id)
-    meta_path = f"{DB_PATH}/{run_id}.json"
-    if not os.path.exists(meta_path):
-        return JSONResponse(status_code=404, content={"error": "Run ID not found"})
-    with open(meta_path) as f:
-        data = json.load(f)
-    return {"run_id": run_id, "status": data.get("status", "unknown")}
+    
+    try:
+        # Get state from state service
+        state = state_service.get_state(run_id)
+        if not state:
+            return JSONResponse(status_code=404, content={"error": "Run ID not found"})
+        
+        # Get additional metadata from blueprint record
+        meta_file = f"{DB_PATH}/{run_id}.json"
+        if os.path.exists(meta_file):
+            with open(meta_file) as f:
+                record = json.load(f)
+                blueprint = record.get("blueprint", {})
+                return {
+                    "run_id": run_id,
+                    "status": state["state"],
+                    "workspace": state.get("workspace"),
+                    "blueprint_kind": blueprint.get("kind"),
+                    "external_reference": record.get("external_reference"),
+                    "source_repo": record.get("source_repo"),
+                    "metadata": state.get("metadata", {})
+                }
+        else:
+            # If no metadata file exists, return just the state
+            return {
+                "run_id": run_id,
+                "status": state["state"],
+                "workspace": state.get("workspace"),
+                "metadata": state.get("metadata", {})
+            }
+        
+    except Exception as e:
+        error_msg = f"Error getting run status: {str(e)}"
+        logging.error(error_msg)
+        return JSONResponse(
+            status_code=500,
+            content={"error": error_msg}
+        )
 
 @app.get("/run/{run_id}/summary")
 async def get_summary(run_id: str):
     """Get a summary of a run, including status and file previews."""
     if sanitize_run_id(run_id):
         return sanitize_run_id(run_id)
-    meta_path = f"{DB_PATH}/{run_id}.json"
-    run_dir = f"{RUNS_PATH}/{run_id}"
-    if not os.path.exists(meta_path):
-        return JSONResponse(status_code=404, content={"error": "Run ID not found"})
-    if not os.path.exists(run_dir):
-        return JSONResponse(status_code=404, content={"error": "Run files not found"})
-    with open(meta_path) as f:
-        meta = json.load(f)
-    summary = {"run_id": run_id, "status": meta.get("status"), "files": {}}
-    for fname in os.listdir(run_dir):
-        with open(os.path.join(run_dir, fname)) as f:
-            summary["files"][fname] = f.read()[:1000]  # truncate file previews
-    return summary
+    
+    try:
+        # Get state from state service
+        state = state_service.get_state(run_id)
+        if not state:
+            return JSONResponse(status_code=404, content={"error": "Run ID not found"})
+        
+        # Get blueprint record
+        meta_file = f"{DB_PATH}/{run_id}.json"
+        if not os.path.exists(meta_file):
+            return JSONResponse(status_code=404, content={"error": "Run ID not found"})
+        
+        with open(meta_file) as f:
+            record = json.load(f)
+            blueprint = record.get("blueprint", {})
+        
+        # Get deployment bundle from storage if available
+        files = {}
+        if "bundle_key" in record:
+            try:
+                bundle = storage_service.get_deployment_bundle(record["bundle_key"])
+                # Extract and read files from the bundle
+                import zipfile
+                import io
+                with zipfile.ZipFile(io.BytesIO(bundle)) as zf:
+                    for fname in zf.namelist():
+                        if fname.endswith('.tf'):
+                            with zf.open(fname) as f:
+                                files[fname] = f.read().decode('utf-8')[:1000]  # truncate file previews
+            except Exception as e:
+                logging.warning(f"Could not read deployment bundle: {str(e)}")
+        
+        return {
+            "run_id": run_id,
+            "status": state["state"],
+            "workspace": state.get("workspace"),
+            "blueprint_kind": blueprint.get("kind"),
+            "external_reference": record.get("external_reference"),
+            "source_repo": record.get("source_repo"),
+            "metadata": state.get("metadata", {}),
+            "files": files
+        }
+        
+    except Exception as e:
+        error_msg = f"Error getting run summary: {str(e)}"
+        logging.error(error_msg)
+        return JSONResponse(
+            status_code=500,
+            content={"error": error_msg}
+        )

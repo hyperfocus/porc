@@ -1,0 +1,36 @@
+# QUILL Template for GKE Cluster
+# This template enforces our golden path for GKE clusters
+
+module "gke_cluster" {
+  source = "git::https://git.td.com/terraform-modules/gke.git"
+
+  # Required variables from blueprint
+  cluster_name = "{{ cluster_name }}"
+  region      = "{{ region }}"
+  node_count  = {{ node_count }}
+
+  # Enforced golden path settings
+  network_policy     = true
+  workload_identity = true
+  release_channel   = "REGULAR"
+  
+  # Security settings
+  enable_secure_boot = true
+  enable_integrity_monitoring = true
+  
+  # Networking
+  network            = "default"
+  subnetwork        = "default"
+  ip_range_pods     = "pods"
+  ip_range_services = "services"
+  
+  # Node configuration
+  node_machine_type = "e2-standard-4"
+  node_disk_size    = 100
+  node_disk_type    = "pd-standard"
+  
+  # Maintenance
+  maintenance_start_time = "03:00"
+  maintenance_end_time   = "05:00"
+  maintenance_recurrence = "FREQ=WEEKLY;BYDAY=SA,SU"
+} 

@@ -124,6 +124,9 @@ The following environment variables are required for deployment:
 - `TFE_ENV`: Environment name (e.g., dev, prod)
 - `MONGO_URI`: MongoDB connection string
 - `GITHUB_REPOSITORY`: GitHub repository name
+- `STORAGE_ACCOUNT`: Azure Storage account name
+- `STORAGE_ACCESS_KEY`: Azure Storage account access key
+- `STORAGE_BUCKET`: Azure Blob container name (default: porcbundles)
 
 ## Kubernetes Secrets
 
@@ -137,6 +140,10 @@ kubectl create secret generic tfe-secrets \
 # MongoDB connection string
 kubectl create secret generic mongo-secrets \
   --from-literal=MONGO_URI=your-mongo-uri-here
+
+# Azure Storage access key
+kubectl create secret generic storage-secrets \
+  --from-literal=storage-access-key=your-storage-access-key-here
 ```
 
 ## Helm Installation
@@ -151,7 +158,8 @@ helm repo add porc https://porcupine.azurecr.io/helm
 helm install porc porc/porc \
   --set tfe.org=your-org \
   --set tfe.env=dev \
-  --set github.repository=your-org/porc
+  --set github.repository=your-org/porc \
+  --set storage.account=your-storage-account
 ```
 
 ## Configuration
@@ -167,6 +175,10 @@ tfe:
 
 github:
   repository: "your-org/porc"
+
+storage:
+  account: "your-storage-account"  # Azure storage account name
+  bucket: "porcbundles"  # Azure blob container name
 ```
 
 ## Ingress Configuration
