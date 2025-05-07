@@ -14,7 +14,7 @@ from botocore.exceptions import ClientError
 class StorageService:
     def __init__(self, bucket_name: Optional[str] = None):
         """Initialize storage service with S3 bucket."""
-        self.bucket_name = bucket_name or os.getenv("PORC_STORAGE_BUCKET")
+        self.bucket_name = bucket_name or os.getenv("STORAGE_BUCKET")
         if not self.bucket_name:
             raise ValueError("Storage bucket name is required")
         
