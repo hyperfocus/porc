@@ -22,6 +22,18 @@ def pytest_addoption(parser):
         help="Ignore SSL verification",
         action="store_true",
     )
+    parser.addoption(
+        "--pr-id",
+        default=None,
+        help="GitHub PR number",
+        action="store",
+    )
+    parser.addoption(
+        "--pr-sha",
+        default=None,
+        help="GitHub PR commit SHA",
+        action="store",
+    )
 
 @pytest.fixture(autouse=True)
 def setup_test_env():
@@ -58,6 +70,14 @@ def host_header(request):
 @pytest.fixture
 def ignore_ssl(request):
     return request.config.getoption("--ignore-ssl")
+
+@pytest.fixture
+def pr_id(request):
+    return request.config.getoption("--pr-id")
+
+@pytest.fixture
+def pr_sha(request):
+    return request.config.getoption("--pr-sha")
 
 @pytest.fixture
 def client():
