@@ -9,7 +9,7 @@ import sys
 from datetime import datetime
 from fastapi import FastAPI, Request, Path, Depends
 from pydantic import BaseModel
-from porc_common.config import DB_PATH, RUNS_PATH
+from porc_common.config import DB_PATH, RUNS_PATH, get_tfe_api, get_tfe_org
 from porc_core.render import render_blueprint
 from motor.motor_asyncio import AsyncIOMotorClient
 from porc_core.tfe_client import TFEClient
@@ -30,8 +30,6 @@ class Environment(str, Enum):
     PROD = "prod"
 
 # Terraform Cloud configuration
-TFE_API = os.getenv("TFE_API", "https://app.terraform.io/api/v2")
-TFE_ORG = os.getenv("TFE_ORG", "porc_test")  # Default to porc_test organization
 TFE_ENV = os.getenv("TFE_ENV", Environment.DEV.value)
 GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY", "")
 
@@ -77,7 +75,7 @@ def sanitize_workspace_name(name: str) -> str:
 
 def get_workspace_name() -> str:
     """Generate workspace name based on GitHub repository and environment."""
-    if not TFE_ORG:
+    if not get_tfe_org():
         raise ValueError("TFE_ORG environment variable is not set")
     
     if not GITHUB_REPOSITORY:
@@ -106,7 +104,7 @@ def ensure_workspace_exists(tfe: TFEClient, workspace_name: str) -> str:
             logging.info(f"Creating workspace: {workspace_name}")
             return tfe.create_workspace(
                 name=workspace_name,
-                org=TFE_ORG,
+                org=get_tfe_org(),
                 auto_apply=True,  # Auto-apply for dev environment
                 execution_mode="remote"
             )
@@ -340,8 +338,8 @@ async def plan_run(
             
             # Initialize TFE client with configuration
             tfe = TFEClient(
-                api_url=TFE_API,
-                org=TFE_ORG
+                api_url=get_tfe_api(),
+                org=get_tfe_org()
             )
             
             # Ensure workspace exists
@@ -503,8 +501,8 @@ async def apply_run(
             
             # Initialize TFE client with configuration
             tfe = TFEClient(
-                api_url=TFE_API,
-                org=TFE_ORG
+                api_url=get_tfe_api(),
+                org=get_tfe_org()
             )
             
             # Ensure workspace exists
