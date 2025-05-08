@@ -32,6 +32,18 @@ def get_storage_access_key():
 def get_storage_bucket():
     return get_env("STORAGE_BUCKET", default="porcbundles")
 
+def get_github_app_id():
+    return get_env("GITHUB_APP_ID", required=True)
+
+def get_github_app_installation_id():
+    return get_env("GITHUB_APP_INSTALLATION_ID", required=True)
+
+def get_github_app_private_key():
+    return get_env("GITHUB_APP_PRIVATE_KEY", required=True)
+
+def get_github_app_type():
+    return get_env("GITHUB_APP_TYPE", default="app")
+
 # Use hardcoded defaults for runtime paths
 DB_PATH = "/tmp/porc-metadata"
 RUNS_PATH = "/tmp/porc-runs"

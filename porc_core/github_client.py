@@ -8,16 +8,22 @@ import jwt
 import time
 from typing import Dict, Any, Optional
 from datetime import datetime
+from porc_common.config import (
+    get_github_app_id,
+    get_github_app_installation_id,
+    get_github_app_private_key,
+    get_github_app_type
+)
 
 class GitHubClient:
     def __init__(self, token: Optional[str] = None):
         """Initialize GitHub client with token or GitHub App credentials."""
         self._token = token
         self._headers = None
-        self._app_id = os.getenv("GITHUB_APP_ID")
-        self._installation_id = os.getenv("GITHUB_APP_INSTALLATION_ID")
-        self._private_key = os.getenv("GITHUB_APP_PRIVATE_KEY")
-        self._app_type = os.getenv("GITHUB_APP_TYPE", "pat")
+        self._app_id = get_github_app_id()
+        self._installation_id = get_github_app_installation_id()
+        self._private_key = get_github_app_private_key()
+        self._app_type = get_github_app_type()
         self._session = None
     
     @property
@@ -31,6 +37,7 @@ class GitHubClient:
     async def token(self) -> str:
         """Get the GitHub token, initializing it if needed."""
         if self._token is None:
+            logging.info(f"Initializing GitHub token with app_type={self._app_type}")
             if self._app_type == "app":
                 # Generate JWT for GitHub App
                 now = int(time.time())
@@ -39,6 +46,7 @@ class GitHubClient:
                     'exp': now + 300,  # 5 minutes
                     'iss': self._app_id
                 }
+                logging.info(f"Generating JWT for GitHub App ID {self._app_id}")
                 jwt_token = jwt.encode(payload, self._private_key, algorithm='RS256')
                 
                 # Get installation access token
@@ -47,17 +55,21 @@ class GitHubClient:
                     'Accept': 'application/vnd.github.v3+json'
                 }
                 session = await self.session
+                logging.info(f"Getting installation access token for installation {self._installation_id}")
                 async with session.post(
                     f'https://api.github.com/app/installations/{self._installation_id}/access_tokens',
                     headers=headers
                 ) as response:
                     response.raise_for_status()
                     self._token = (await response.json())['token']
+                    logging.info("Successfully obtained installation access token")
             else:
                 # Use PAT
                 self._token = os.getenv("GITHUB_TOKEN")
                 if not self._token:
+                    logging.error("GitHub token is required but not set")
                     raise ValueError("GitHub token is required")
+                logging.info("Using GitHub PAT token")
         return self._token
     
     @property
@@ -70,11 +82,13 @@ class GitHubClient:
                     "Authorization": f"Bearer {token}",
                     "Accept": "application/vnd.github.v3+json"
                 }
+                logging.info("Using GitHub App authentication headers")
             else:
                 self._headers = {
                     "Authorization": f"token {token}",
                     "Accept": "application/vnd.github.v3+json"
                 }
+                logging.info("Using GitHub PAT authentication headers")
         return self._headers
     
     async def create_check_run(self, owner: str, repo: str, sha: str, name: str) -> Dict[str, Any]:
@@ -92,12 +106,18 @@ class GitHubClient:
         }
         session = await self.session
         headers = await self.headers
+        logging.info(f"Creating GitHub check run for {owner}/{repo} at {sha}")
+        logging.info(f"Request URL: {url}")
+        logging.info(f"Request headers: {headers}")
+        logging.info(f"Request data: {data}")
         async with session.post(url, headers=headers, json=data) as response:
             if response.status != 201:
                 error_text = await response.text()
                 logging.error(f"Failed to create check run: {error_text}")
                 raise Exception(f"Failed to create check run: {error_text}")
-            return await response.json()
+            result = await response.json()
+            logging.info(f"Successfully created check run: {result}")
+            return result
     
     async def update_check_run(self, owner: str, repo: str, check_run_id: int, 
                         status: str, conclusion: Optional[str] = None,
