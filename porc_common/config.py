@@ -1,15 +1,39 @@
 import os
 
-def get_env(name, default=None, required=False):
-    value = os.getenv(name, default)
-    if required and value is None:
+def get_env(name, required=False):
+    value = os.getenv(name)
+    if required and not value:
         raise EnvironmentError(f"Missing required environment variable: {name}")
     return value
 
-# Example config usage
-TFE_TOKEN = get_env("TFE_TOKEN", required=True)
-TFE_API = get_env("TFE_API", "https://app.terraform.io/api/v2")
-TFE_ORG = get_env("TFE_ORG", "td-organization")
+# Remove all top-level required secrets
+# Instead, provide functions to fetch them when needed
+
+def get_tfe_token():
+    return get_env("TFE_TOKEN", required=True)
+
+def get_tfe_api():
+    return get_env("TFE_API", required=False) or "https://app.terraform.io/api/v2"
+
+def get_tfe_org():
+    return get_env("TFE_ORG", required=False) or "porc_test"
+
+def get_tfe_env():
+    return get_env("TFE_ENV", required=False) or "dev"
+
+def get_github_repository():
+    return get_env("GITHUB_REPOSITORY", required=False) or ""
+
+def get_storage_account():
+    return get_env("STORAGE_ACCOUNT", required=False)
+
+def get_storage_access_key():
+    return get_env("STORAGE_ACCESS_KEY", required=False)
+
+def get_storage_bucket():
+    return get_env("STORAGE_BUCKET", required=False) or "porcbundles"
+
+# Any other config values should be accessed via a function, not at import time.
 
 # Runtime paths
 DB_PATH = get_env("PORC_DB_PATH", "/tmp/porc-metadata")
