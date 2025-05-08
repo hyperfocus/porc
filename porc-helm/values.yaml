@@ -22,6 +22,10 @@ tfe:
 # GitHub configuration
 github:
   repository: ""
+  app:
+    id: "1252405"  # Your GitHub App ID
+    installation_id: "66216708"  # Your GitHub App installation ID
+    type: "app"  # This tells the app to use GitHub App authentication
 
 service:
   type: ClusterIP

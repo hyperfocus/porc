@@ -4,21 +4,50 @@ PORC Core GitHub: Client for interacting with GitHub Checks API.
 import os
 import logging
 import requests
+import jwt
+import time
 from typing import Dict, Any, Optional
 
 class GitHubClient:
     def __init__(self, token: Optional[str] = None):
-        """Initialize GitHub client with token."""
+        """Initialize GitHub client with token or GitHub App credentials."""
         self._token = token
         self._headers = None
+        self._app_id = os.getenv("GITHUB_APP_ID")
+        self._installation_id = os.getenv("GITHUB_APP_INSTALLATION_ID")
+        self._private_key = os.getenv("GITHUB_APP_PRIVATE_KEY")
+        self._app_type = os.getenv("GITHUB_APP_TYPE", "pat")
     
     @property
     def token(self) -> str:
         """Get the GitHub token, initializing it if needed."""
         if self._token is None:
-            self._token = os.getenv("GITHUB_TOKEN")
-            if not self._token:
-                raise ValueError("GitHub token is required")
+            if self._app_type == "app":
+                # Generate JWT for GitHub App
+                now = int(time.time())
+                payload = {
+                    'iat': now,
+                    'exp': now + 300,  # 5 minutes
+                    'iss': self._app_id
+                }
+                jwt_token = jwt.encode(payload, self._private_key, algorithm='RS256')
+                
+                # Get installation access token
+                headers = {
+                    'Authorization': f'Bearer {jwt_token}',
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+                response = requests.post(
+                    f'https://api.github.com/app/installations/{self._installation_id}/access_tokens',
+                    headers=headers
+                )
+                response.raise_for_status()
+                self._token = response.json()['token']
+            else:
+                # Use PAT
+                self._token = os.getenv("GITHUB_TOKEN")
+                if not self._token:
+                    raise ValueError("GitHub token is required")
         return self._token
     
     @property
