@@ -80,8 +80,9 @@ def create_github_app(
     if webhook_secret:
         data['webhook_secret'] = webhook_secret
     
+    # First create the app manifest
     response = requests.post(
-        'https://api.github.com/app-manifests',
+        'https://api.github.com/user/apps',
         headers=headers,
         json=data
     )
@@ -89,7 +90,24 @@ def create_github_app(
     if response.status_code != 201:
         raise Exception(f"Failed to create GitHub App: {response.text}")
     
-    return response.json()
+    app_data = response.json()
+    
+    # Then create the app installation
+    install_response = requests.post(
+        f'https://api.github.com/app/installations',
+        headers=headers,
+        json={
+            'repository_selection': 'selected',
+            'repositories': [f'{owner}/{repo}']
+        }
+    )
+    
+    if install_response.status_code != 201:
+        raise Exception(f"Failed to create app installation: {install_response.text}")
+    
+    app_data['installation_id'] = install_response.json()['id']
+    
+    return app_data
 
 
 def install_app_on_repo(
@@ -167,7 +185,7 @@ def main():
         'client_secret': app_data['client_secret'],
         'private_key': private_key_b64,
         'webhook_secret': args.webhook_secret,
-        'installation_id': app_data['id']  # This is the installation ID for the first installation
+        'installation_id': app_data['installation_id']
     }
     
     with open(output_dir / 'github-app-config.json', 'w') as f:
