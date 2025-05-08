@@ -13,7 +13,8 @@ import base64
 import json
 import os
 import sys
-import webbrowser
+import time
+import jwt
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -44,10 +45,21 @@ def generate_private_key() -> tuple[str, str]:
     return pem, b64
 
 
-def get_app_installation_id(owner: str, repo: str, github_token: str) -> int:
-    """Get the installation ID for the GitHub App."""
+def get_installation_id(app_id: int, private_key: str, owner: str, repo: str) -> int:
+    """Get the installation ID for the GitHub App using JWT authentication."""
+    # Generate JWT
+    now = int(time.time())
+    payload = {
+        'iat': now,
+        'exp': now + 600,  # 10 minutes
+        'iss': app_id
+    }
+    
+    jwt_token = jwt.encode(payload, private_key, algorithm='RS256')
+    
+    # Get installation ID
     headers = {
-        'Authorization': f'token {github_token}',
+        'Authorization': f'Bearer {jwt_token}',
         'Accept': 'application/vnd.github.v3+json'
     }
     
@@ -71,7 +83,6 @@ def main():
     parser.add_argument('--webhook-secret', help='Webhook secret for the GitHub App')
     parser.add_argument('--owner', required=True, help='GitHub organization or user name')
     parser.add_argument('--repo', required=True, help='Repository name')
-    parser.add_argument('--github-token', required=True, help='GitHub personal access token with repo scope')
     parser.add_argument('--output-dir', default='.', help='Directory to save the credentials')
     
     args = parser.parse_args()
@@ -114,7 +125,7 @@ def main():
     # Get installation ID
     print("\nGetting installation ID...")
     try:
-        installation_id = get_app_installation_id(args.owner, args.repo, args.github_token)
+        installation_id = get_installation_id(int(app_id), private_key_pem, args.owner, args.repo)
     except Exception as e:
         print(f"\nError getting installation ID: {e}")
         print("\nPlease install the app on your repository first:")
@@ -123,7 +134,7 @@ def main():
         print("3. Select your repository")
         print("4. Click 'Install'")
         input("\nPress Enter after installing the app...")
-        installation_id = get_app_installation_id(args.owner, args.repo, args.github_token)
+        installation_id = get_installation_id(int(app_id), private_key_pem, args.owner, args.repo)
     
     # Save app configuration
     config = {
