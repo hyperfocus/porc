@@ -7,6 +7,7 @@ import aiohttp
 import jwt
 import time
 from typing import Dict, Any, Optional
+from datetime import datetime
 
 class GitHubClient:
     def __init__(self, token: Optional[str] = None):
@@ -82,12 +83,20 @@ class GitHubClient:
         data = {
             "name": name,
             "head_sha": sha,
-            "status": "in_progress"
+            "status": "in_progress",
+            "started_at": datetime.utcnow().isoformat(),
+            "output": {
+                "title": name,
+                "summary": "Starting check run..."
+            }
         }
         session = await self.session
         headers = await self.headers
         async with session.post(url, headers=headers, json=data) as response:
-            response.raise_for_status()
+            if response.status != 201:
+                error_text = await response.text()
+                logging.error(f"Failed to create check run: {error_text}")
+                raise Exception(f"Failed to create check run: {error_text}")
             return await response.json()
     
     async def update_check_run(self, owner: str, repo: str, check_run_id: int, 
