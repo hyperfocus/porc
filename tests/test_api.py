@@ -19,7 +19,7 @@ async def request(client, method, url, headers=None, json=None):
 
 @pytest.mark.asyncio
 async def test_full_porc_workflow(async_client, headers, pr_sha):
-    # Step 1: Submit Blueprint
+    # Step 1: Submit Blueprint 1
     blueprint = {
         "kind": "postgres-db",
         "variables": {
