@@ -5,6 +5,7 @@ This script will:
 1. Generate a JWT token using the GitHub App private key
 2. Get an installation access token
 3. Make a test API call to verify authentication
+4. Create a test check run
 """
 import os
 import jwt
@@ -12,6 +13,8 @@ import time
 import aiohttp
 import asyncio
 import logging
+import argparse
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -21,6 +24,12 @@ logger = logging.getLogger(__name__)
 APP_ID = os.getenv("GITHUB_APP_ID", "1252405")  # From values.yaml
 INSTALLATION_ID = os.getenv("GITHUB_APP_INSTALLATION_ID", "66216708")  # From values.yaml
 PRIVATE_KEY = os.getenv("GITHUB_APP_PRIVATE_KEY")
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Test GitHub App authentication')
+    parser.add_argument('--repo-full', help='Full repository name (owner/repo)', required=True)
+    parser.add_argument('--pr-sha', help='PR commit SHA', required=True)
+    return parser.parse_args()
 
 async def generate_jwt():
     """Generate a JWT token for GitHub App authentication."""
@@ -61,7 +70,7 @@ async def get_installation_token(jwt_token):
             logger.info("Successfully obtained installation token")
             return data['token']
 
-async def test_api_call(token):
+async def test_api_call(token, repo_full):
     """Make a test API call using the installation token."""
     headers = {
         'Authorization': f'Bearer {token}',
@@ -70,7 +79,7 @@ async def test_api_call(token):
     
     async with aiohttp.ClientSession() as session:
         # Test getting repository information
-        url = 'https://api.github.com/repos/hyperfocus/porc'
+        url = f'https://api.github.com/repos/{repo_full}'
         async with session.get(url, headers=headers) as response:
             if response.status != 200:
                 error_text = await response.text()
@@ -81,7 +90,39 @@ async def test_api_call(token):
             logger.info(f"Successfully accessed repository: {data['name']}")
             return data
 
+async def create_check_run(token, repo_full, pr_sha):
+    """Create a test check run."""
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Accept': 'application/vnd.github.v3+json'
+    }
+    
+    data = {
+        "name": "Test Check Run",
+        "head_sha": pr_sha,
+        "status": "in_progress",
+        "started_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "output": {
+            "title": "Test Check Run",
+            "summary": "This is a test check run created by the GitHub App authentication test script."
+        }
+    }
+    
+    async with aiohttp.ClientSession() as session:
+        url = f'https://api.github.com/repos/{repo_full}/check-runs'
+        async with session.post(url, headers=headers, json=data) as response:
+            if response.status != 201:
+                error_text = await response.text()
+                logger.error(f"Failed to create check run: {error_text}")
+                raise Exception(f"Failed to create check run: {error_text}")
+            
+            data = await response.json()
+            logger.info(f"Successfully created check run with ID: {data['id']}")
+            return data
+
 async def main():
+    args = parse_args()
+    
     try:
         # Step 1: Generate JWT
         jwt_token = await generate_jwt()
@@ -90,11 +131,15 @@ async def main():
         installation_token = await get_installation_token(jwt_token)
         
         # Step 3: Test API call
-        repo_info = await test_api_call(installation_token)
+        repo_info = await test_api_call(installation_token, args.repo_full)
+        
+        # Step 4: Create test check run
+        check_run = await create_check_run(installation_token, args.repo_full, args.pr_sha)
         
         logger.info("GitHub App authentication test completed successfully!")
         logger.info(f"Repository name: {repo_info['name']}")
         logger.info(f"Repository URL: {repo_info['html_url']}")
+        logger.info(f"Created check run ID: {check_run['id']}")
         
     except Exception as e:
         logger.error(f"Test failed: {e}")

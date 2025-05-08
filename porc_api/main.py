@@ -397,7 +397,7 @@ async def apply_run(
         owner, repo = source_repo.split('/')
         
         # Create GitHub check run
-        check_run = github_client.create_check_run(
+        check_run = await github_client.create_check_run(
             owner=owner,
             repo=repo,
             sha=external_ref,
@@ -471,7 +471,7 @@ async def apply_run(
                 "summary": f"Apply status: {status}",
                 "text": apply_output[:TRUNCATE_OUTPUT]
             }
-            github_client.update_check_run(
+            await github_client.update_check_run(
                 owner=owner,
                 repo=repo,
                 check_run_id=check_run_id,
