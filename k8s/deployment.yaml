@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: porc-api
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: porc-api
+  template:
+    metadata:
+      labels:
+        app: porc-api
+    spec:
+      containers:
+      - name: porc-api
+        image: porc-api:latest
+        envFrom:
+        - configMapRef:
+            name: github-app-config
+        env:
+        - name: GITHUB_APP_ID
+          valueFrom:
+            secretKeyRef:
+              name: github-app-id
+              key: app_id
+        - name: GITHUB_APP_INSTALLATION_ID
+          valueFrom:
+            secretKeyRef:
+              name: github-app-installation-id
+              key: installation_id
+        - name: GITHUB_APP_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: github-app-key
+              key: private_key
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m" 
