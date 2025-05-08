@@ -84,7 +84,7 @@ class GitHubClient:
             "name": name,
             "head_sha": sha,
             "status": "in_progress",
-            "started_at": datetime.utcnow().isoformat(),
+            "started_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
             "output": {
                 "title": name,
                 "summary": "Starting check run..."
