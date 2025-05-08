@@ -24,8 +24,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 
 
-def generate_private_key() -> tuple[str, str]:
-    """Generate a new RSA private key and return both PEM and base64 encoded versions."""
+def generate_private_key() -> tuple[str, str, str]:
+    """Generate a new RSA private key and return PEM, base64 encoded, and public key versions."""
     private_key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=2048,
@@ -42,7 +42,13 @@ def generate_private_key() -> tuple[str, str]:
     # Get base64 encoded version
     b64 = base64.b64encode(pem.encode('utf-8')).decode('utf-8')
     
-    return pem, b64
+    # Get public key
+    public_key = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    ).decode('utf-8')
+    
+    return pem, b64, public_key
 
 
 def get_installation_id(app_id: int, private_key: str, owner: str, repo: str) -> int:
@@ -89,7 +95,7 @@ def main():
     
     # Generate private key
     print("Generating private key...")
-    private_key_pem, private_key_b64 = generate_private_key()
+    private_key_pem, private_key_b64, public_key = generate_private_key()
     
     # Save private key
     output_dir = Path(args.output_dir)
@@ -116,8 +122,10 @@ def main():
     print("   - Pull request")
     print("\n5. Where can this GitHub App be installed?")
     print("   - Select 'Only on this account'")
+    print("\n6. For the private key, copy and paste this public key:")
+    print("\n" + public_key + "\n")
     
-    input("\nPress Enter after you've created the GitHub App...")
+    input("\nPress Enter after you've created the GitHub App and uploaded the public key...")
     
     # Get app ID
     app_id = input("\nEnter the App ID (found in the app's settings page): ")
