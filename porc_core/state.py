@@ -59,7 +59,7 @@ class StateService:
         except ResourceExistsError:
             logging.info(f"Using existing state table: {self.table_name}")
     
-    def get_state(self, run_id: str) -> Dict[str, Any]:
+    async def get_state(self, run_id: str) -> Dict[str, Any]:
         """Get the current state of a run."""
         try:
             entity = self.table_client.get_entity(partition_key=run_id, row_key=run_id)

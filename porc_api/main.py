@@ -373,7 +373,7 @@ async def apply_run(
             record = json.load(f)
         
         # Get current state
-        current_state = state_service.get_state(run_id)
+        current_state = await state_service.get_state(run_id)
         if not current_state or current_state.get("state") != RunState.PLANNED.value:
             return JSONResponse(
                 status_code=400,
@@ -526,7 +526,7 @@ async def get_status(
     
     try:
         # Get state from state service
-        state = state_service.get_state(run_id)
+        state = await state_service.get_state(run_id)
         if not state:
             return JSONResponse(status_code=404, content={"error": "Run ID not found"})
         
@@ -574,7 +574,7 @@ async def get_summary(
     
     try:
         # Get state from state service
-        state = state_service.get_state(run_id)
+        state = await state_service.get_state(run_id)
         if not state:
             return JSONResponse(status_code=404, content={"error": "Run ID not found"})
         
