@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Script to create and configure a GitHub App for PORC.
+Script to help set up a GitHub App for PORC.
 This script will:
-1. Create a new GitHub App
-2. Generate a private key
-3. Install it on the specified repository
+1. Generate a private key
+2. Guide you through creating the GitHub App manually
+3. Help install it on the specified repository
 4. Output the necessary credentials
 """
 
@@ -13,6 +13,7 @@ import base64
 import json
 import os
 import sys
+import webbrowser
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -43,96 +44,26 @@ def generate_private_key() -> tuple[str, str]:
     return pem, b64
 
 
-def create_github_app(
-    name: str,
-    description: str,
-    homepage_url: str,
-    webhook_url: Optional[str],
-    webhook_secret: Optional[str],
-    private_key: str,
-    github_token: str
-) -> Dict:
-    """Create a new GitHub App using the GitHub API."""
+def get_app_installation_id(owner: str, repo: str, github_token: str) -> int:
+    """Get the installation ID for the GitHub App."""
     headers = {
         'Authorization': f'token {github_token}',
         'Accept': 'application/vnd.github.v3+json'
     }
     
-    data = {
-        'name': name,
-        'description': description,
-        'url': homepage_url,
-        'default_permissions': {
-            'checks': 'write',
-            'contents': 'read',
-            'pull_requests': 'read'
-        },
-        'default_events': [
-            'check_run',
-            'check_suite',
-            'pull_request'
-        ],
-        'public': False
-    }
-    
-    if webhook_url:
-        data['webhook_url'] = webhook_url
-    if webhook_secret:
-        data['webhook_secret'] = webhook_secret
-    
-    # First create the app manifest
-    response = requests.post(
-        'https://api.github.com/user/apps',
-        headers=headers,
-        json=data
-    )
-    
-    if response.status_code != 201:
-        raise Exception(f"Failed to create GitHub App: {response.text}")
-    
-    app_data = response.json()
-    
-    # Then create the app installation
-    install_response = requests.post(
-        f'https://api.github.com/app/installations',
-        headers=headers,
-        json={
-            'repository_selection': 'selected',
-            'repositories': [f'{owner}/{repo}']
-        }
-    )
-    
-    if install_response.status_code != 201:
-        raise Exception(f"Failed to create app installation: {install_response.text}")
-    
-    app_data['installation_id'] = install_response.json()['id']
-    
-    return app_data
-
-
-def install_app_on_repo(
-    app_id: int,
-    owner: str,
-    repo: str,
-    github_token: str
-) -> None:
-    """Install the GitHub App on the specified repository."""
-    headers = {
-        'Authorization': f'token {github_token}',
-        'Accept': 'application/vnd.github.v3+json'
-    }
-    
-    response = requests.post(
-        f'https://api.github.com/app/installations/{app_id}/repositories/{owner}/{repo}',
+    response = requests.get(
+        f'https://api.github.com/repos/{owner}/{repo}/installation',
         headers=headers
     )
     
-    if response.status_code != 201:
-        raise Exception(f"Failed to install app on repository: {response.text}")
+    if response.status_code != 200:
+        raise Exception(f"Failed to get installation ID: {response.text}")
+    
+    return response.json()['id']
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Create and configure a GitHub App for PORC')
+    parser = argparse.ArgumentParser(description='Set up a GitHub App for PORC')
     parser.add_argument('--name', default='porc-checks-bot', help='Name of the GitHub App')
     parser.add_argument('--description', default='PORC GitHub App for managing check runs', help='Description of the GitHub App')
     parser.add_argument('--homepage', required=True, help='Homepage URL for the GitHub App')
@@ -140,7 +71,7 @@ def main():
     parser.add_argument('--webhook-secret', help='Webhook secret for the GitHub App')
     parser.add_argument('--owner', required=True, help='GitHub organization or user name')
     parser.add_argument('--repo', required=True, help='Repository name')
-    parser.add_argument('--github-token', required=True, help='GitHub personal access token with admin:org scope')
+    parser.add_argument('--github-token', required=True, help='GitHub personal access token with repo scope')
     parser.add_argument('--output-dir', default='.', help='Directory to save the credentials')
     
     args = parser.parse_args()
@@ -149,53 +80,66 @@ def main():
     print("Generating private key...")
     private_key_pem, private_key_b64 = generate_private_key()
     
-    # Create GitHub App
-    print("Creating GitHub App...")
-    app_data = create_github_app(
-        name=args.name,
-        description=args.description,
-        homepage_url=args.homepage,
-        webhook_url=args.webhook_url,
-        webhook_secret=args.webhook_secret,
-        private_key=private_key_pem,
-        github_token=args.github_token
-    )
-    
-    # Install app on repository
-    print(f"Installing app on {args.owner}/{args.repo}...")
-    install_app_on_repo(
-        app_id=app_data['id'],
-        owner=args.owner,
-        repo=args.repo,
-        github_token=args.github_token
-    )
-    
-    # Save credentials
+    # Save private key
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Save private key
-    with open(output_dir / 'private-key.pem', 'w') as f:
+    private_key_path = output_dir / 'private-key.pem'
+    with open(private_key_path, 'w') as f:
         f.write(private_key_pem)
+    
+    print("\n=== GitHub App Setup Instructions ===")
+    print("1. Go to https://github.com/settings/apps/new")
+    print("2. Fill in the following details:")
+    print(f"   - GitHub App name: {args.name}")
+    print(f"   - Homepage URL: {args.homepage}")
+    print(f"   - Webhook URL: {args.webhook_url or '(leave empty)'}")
+    print(f"   - Webhook secret: {args.webhook_secret or '(leave empty)'}")
+    print("\n3. Set the following permissions:")
+    print("   - Checks: Read & write")
+    print("   - Contents: Read-only")
+    print("   - Pull requests: Read-only")
+    print("\n4. Subscribe to these events:")
+    print("   - Check run")
+    print("   - Check suite")
+    print("   - Pull request")
+    print("\n5. Where can this GitHub App be installed?")
+    print("   - Select 'Only on this account'")
+    
+    input("\nPress Enter after you've created the GitHub App...")
+    
+    # Get app ID
+    app_id = input("\nEnter the App ID (found in the app's settings page): ")
+    
+    # Get installation ID
+    print("\nGetting installation ID...")
+    try:
+        installation_id = get_app_installation_id(args.owner, args.repo, args.github_token)
+    except Exception as e:
+        print(f"\nError getting installation ID: {e}")
+        print("\nPlease install the app on your repository first:")
+        print(f"1. Go to https://github.com/apps/{args.name}")
+        print("2. Click 'Install'")
+        print("3. Select your repository")
+        print("4. Click 'Install'")
+        input("\nPress Enter after installing the app...")
+        installation_id = get_app_installation_id(args.owner, args.repo, args.github_token)
     
     # Save app configuration
     config = {
-        'app_id': app_data['id'],
-        'client_id': app_data['client_id'],
-        'client_secret': app_data['client_secret'],
+        'app_id': int(app_id),
         'private_key': private_key_b64,
         'webhook_secret': args.webhook_secret,
-        'installation_id': app_data['installation_id']
+        'installation_id': installation_id
     }
     
-    with open(output_dir / 'github-app-config.json', 'w') as f:
+    config_path = output_dir / 'github-app-config.json'
+    with open(config_path, 'w') as f:
         json.dump(config, f, indent=2)
     
-    print("\nGitHub App created and installed successfully!")
-    print(f"App ID: {app_data['id']}")
-    print(f"Client ID: {app_data['client_id']}")
-    print(f"Private key saved to: {output_dir / 'private-key.pem'}")
-    print(f"Configuration saved to: {output_dir / 'github-app-config.json'}")
+    print("\nGitHub App setup completed successfully!")
+    print(f"Private key saved to: {private_key_path}")
+    print(f"Configuration saved to: {config_path}")
     print("\nNext steps:")
     print("1. Add the private key and app ID to your Kubernetes secrets")
     print("2. Update your PORC API configuration to use the GitHub App")
