@@ -54,10 +54,16 @@ class GitHubClient:
     def headers(self) -> Dict[str, str]:
         """Get the request headers, initializing them if needed."""
         if self._headers is None:
-            self._headers = {
-                "Authorization": f"token {self.token}",
-                "Accept": "application/vnd.github.v3+json"
-            }
+            if self._app_type == "app":
+                self._headers = {
+                    "Authorization": f"Bearer {self.token}",
+                    "Accept": "application/vnd.github.v3+json"
+                }
+            else:
+                self._headers = {
+                    "Authorization": f"token {self.token}",
+                    "Accept": "application/vnd.github.v3+json"
+                }
         return self._headers
     
     def create_check_run(self, owner: str, repo: str, sha: str, name: str) -> Dict[str, Any]:
