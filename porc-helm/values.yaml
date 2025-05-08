@@ -1,27 +1,59 @@
 replicaCount: 1
 
 image:
-  repository: porcupine.azurecr.io/porc
+  repository: porc
   tag: latest
   pullPolicy: IfNotPresent
 
 imagePullSecrets:
   - name: acr-creds
 
-mongo:
-  uri: "mongodb://porcmongo.mongocluster.cosmos.azure.com:27017/porc"
+# MongoDB connection string is now provided via the 'mongo-secrets' Kubernetes secret
+# mongo:
+#   uri: "mongodb+srv://porcupine:<password>@porcmongo.global.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000"
+
+# Terraform Enterprise configuration
+tfe:
+  api: https://app.terraform.io/api/v2
+  org: porc_test
+  env: dev
+  tokenSecretName: tfe-secrets
+
+# GitHub configuration
+github:
+  app:
+    id: "1252405"  # Your GitHub App ID
+    installation_id: "66216708"  # Your GitHub App installation ID
+    type: "app"  # This tells the app to use GitHub App authentication
 
 service:
   type: ClusterIP
   port: 80
+  targetPort: 8000
+
+storage:
+  account: "porcbundles"  # Azure storage account name
+  bucket: "porc-deployment-bundles"  # Azure blob container name
 
 resources:
   limits:
-    cpu: 250m
+    cpu: 500m
     memory: 512Mi
   requests:
     cpu: 100m
-    memory: 256Mi
+    memory: 128Mi
 
 ingress:
-  enabled: false
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/healthcheck-path: /health
+    nginx.ingress.kubernetes.io/healthcheck-interval: "10s"
+    nginx.ingress.kubernetes.io/healthcheck-timeout: "5s"
+    nginx.ingress.kubernetes.io/healthcheck-fails: "3"
+    nginx.ingress.kubernetes.io/healthcheck-passes: "3"
+  hosts:
+    - host: porc.example.com
+      paths:
+        - path: /
+          pathType: Prefix

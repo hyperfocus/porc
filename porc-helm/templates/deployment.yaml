@@ -22,6 +22,62 @@ spec:
             - containerPort: 8000
           env:
             - name: MONGO_URI
-              value: "{{ .Values.mongo.uri }}"
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secrets
+                  key: MONGO_URI
+            - name: TFE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.tfe.tokenSecretName }}
+                  key: TFE_TOKEN
+            - name: TFE_API
+              value: {{ .Values.tfe.api | quote }}
+            - name: TFE_ORG
+              value: {{ .Values.tfe.org | quote }}
+            - name: TFE_ENV
+              value: {{ .Values.tfe.env | quote }}
+            - name: GITHUB_REPOSITORY
+              value: {{ .Values.github.repository | quote }}
+            - name: GITHUB_APP_TYPE
+              value: "app"
+            - name: GITHUB_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: github-app-id
+                  key: id
+            - name: GITHUB_APP_INSTALLATION_ID
+              valueFrom:
+                secretKeyRef:
+                  name: github-app-installation-id
+                  key: id
+            - name: GITHUB_APP_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: github-app-key
+                  key: private_key
+            - name: STORAGE_ACCOUNT
+              value: {{ .Values.storage.account | quote }}
+            - name: STORAGE_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: storage-secrets
+                  key: storage-access-key
+            - name: STORAGE_BUCKET
+              value: {{ .Values.storage.bucket | default "porcbundles" | quote }}
+            - name: STORAGE_REGION
+              value: {{ .Values.storage.region | default "us-east-1" | quote }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10

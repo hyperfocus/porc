@@ -114,3 +114,100 @@ This will deploy:
 
 To expose via Ingress, uncomment and configure the `ingress.yaml` template.
 
+## Environment Variables
+
+The following environment variables are required for deployment:
+
+- `TFE_TOKEN`: Terraform Cloud API token
+- `TFE_API`: Terraform Cloud API URL (default: https://app.terraform.io/api/v2)
+- `TFE_ORG`: Terraform Cloud organization name
+- `TFE_ENV`: Environment name (e.g., dev, prod)
+- `MONGO_URI`: MongoDB connection string
+- `GITHUB_REPOSITORY`: GitHub repository name
+- `STORAGE_ACCOUNT`: Azure Storage account name
+- `STORAGE_ACCESS_KEY`: Azure Storage account access key
+- `STORAGE_BUCKET`: Azure Blob container name (default: porcbundles)
+
+## Kubernetes Secrets
+
+Create the following secrets:
+
+```bash
+# Terraform Cloud token
+kubectl create secret generic tfe-secrets \
+  --from-literal=TFE_TOKEN=your-token-here
+
+# MongoDB connection string
+kubectl create secret generic mongo-secrets \
+  --from-literal=MONGO_URI=your-mongo-uri-here
+
+# Azure Storage access key
+kubectl create secret generic storage-secrets \
+  --from-literal=storage-access-key=your-storage-access-key-here
+```
+
+## Helm Installation
+
+1. Add the Helm repository:
+```bash
+helm repo add porc https://porcupine.azurecr.io/helm
+```
+
+2. Install the chart:
+```bash
+helm install porc porc/porc \
+  --set tfe.org=your-org \
+  --set tfe.env=dev \
+  --set github.repository=your-org/porc \
+  --set storage.account=your-storage-account
+```
+
+## Configuration
+
+The following values can be configured in `values.yaml`:
+
+```yaml
+tfe:
+  api: "https://app.terraform.io/api/v2"
+  org: "your-org"
+  env: "dev"
+  tokenSecretName: tfe-secrets
+
+github:
+  repository: "your-org/porc"
+
+storage:
+  account: "your-storage-account"  # Azure storage account name
+  bucket: "porcbundles"  # Azure blob container name
+```
+
+## Ingress Configuration
+
+The default ingress configuration uses NGINX:
+
+```yaml
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/healthcheck-path: /health
+    nginx.ingress.kubernetes.io/healthcheck-interval: "10s"
+    nginx.ingress.kubernetes.io/healthcheck-timeout: "5s"
+    nginx.ingress.kubernetes.io/healthcheck-fails: "3"
+    nginx.ingress.kubernetes.io/healthcheck-passes: "3"
+```
+
+## Resource Requirements
+
+Default resource limits and requests:
+
+```yaml
+resources:
+  limits:
+    cpu: 250m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+```
+

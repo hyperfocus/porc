@@ -2,3 +2,8 @@
 name = "porc"
 version = "0.1.0"
 description = "Platform Orchestrator + CLI"
+
+[tool.pytest.ini_options]
+norecursedirs = ["porc_dag"]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"

@@ -7,5 +7,6 @@ spec:
   selector:
     app: porc
   ports:
-    - port: {{ .Values.service.port }}
-      targetPort: 8000
+    - protocol: TCP
+      port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort | default 8000 }}
