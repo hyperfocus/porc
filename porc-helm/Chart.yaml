@@ -2,5 +2,5 @@ apiVersion: v2
 name: porc
 description: A Helm chart for the PORC Platform Orchestrator
 type: application
-version: 1.0.0-build.148
-appVersion: "1.0.0-build.148"
+version: 1.0.0-build.149
+appVersion: "1.0.0-build.149"
