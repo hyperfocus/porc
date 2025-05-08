@@ -31,7 +31,6 @@ class Environment(str, Enum):
 
 # Terraform Cloud configuration
 TFE_ENV = os.getenv("TFE_ENV", Environment.DEV.value)
-GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY", "")
 
 # Storage configuration
 STORAGE_ACCOUNT = os.getenv("STORAGE_ACCOUNT")  # Azure storage account name
@@ -74,12 +73,9 @@ def sanitize_workspace_name(name: str) -> str:
     return name.lower()
 
 def get_workspace_name() -> str:
-    """Generate workspace name based on GitHub repository and environment."""
+    """Generate workspace name based on environment."""
     if not get_tfe_org():
         raise ValueError("TFE_ORG environment variable is not set")
-    
-    if not GITHUB_REPOSITORY:
-        raise ValueError("GITHUB_REPOSITORY environment variable is not set")
     
     # Validate environment
     try:
@@ -87,12 +83,8 @@ def get_workspace_name() -> str:
     except ValueError:
         raise ValueError(f"Invalid environment: {TFE_ENV}. Must be one of: {[e.value for e in Environment]}")
     
-    # Extract repository name (remove owner prefix if present)
-    repo_name = GITHUB_REPOSITORY.split('/')[-1]
-    
-    # Format: repo-name-env
-    workspace_name = f"{sanitize_workspace_name(repo_name)}-{env.value}"
-    return workspace_name
+    # Format: porc-env
+    return f"porc-{env.value}"
 
 def ensure_workspace_exists(tfe: TFEClient, workspace_name: str) -> str:
     """Ensure workspace exists, create if it doesn't."""
@@ -282,160 +274,82 @@ async def plan_run(
     github_client: GitHubClient = Depends(get_github_client_dependency),
     state_service: StateService = Depends(get_state_service_dependency)
 ):
-    """Run 'terraform plan' for the given run_id using Terraform Cloud."""
-    if sanitize_run_id(run_id):
-        return sanitize_run_id(run_id)
-    
+    """Run terraform plan and create/update GitHub check run."""
     try:
-        # Get the blueprint record
-        meta_file = f"{DB_PATH}/{run_id}.json"
-        if not os.path.exists(meta_file):
-            return JSONResponse(status_code=404, content={"error": "Run ID not found"})
+        # Get run state
+        state = await state_service.get_state(run_id)
+        if not state:
+            return JSONResponse(status_code=404, content={"error": "Run not found"})
         
-        with open(meta_file) as f:
-            record = json.load(f)
+        # Get source repository from state
+        source_repo = state.get("blueprint", {}).get("source_repo")
+        if not source_repo:
+            return JSONResponse(status_code=400, content={"error": "Source repository not found in blueprint"})
         
-        # Get current state
-        current_state = state_service.get_state(run_id)
-        if not current_state or current_state.get("state") != RunState.BUILT.value:
-            return JSONResponse(
-                status_code=400,
-                content={"error": f"Run must be in BUILT state, current state: {current_state.get('state') if current_state else 'unknown'}"}
-            )
+        # Extract owner and repo from source_repo
+        owner, repo = source_repo.split("/")
         
-        # Extract GitHub info
-        source_repo = record["source_repo"]
-        external_ref = record["external_reference"]
-        owner, repo = source_repo.split('/')
+        # Get external reference (PR SHA) from state
+        external_ref = state.get("external_reference")
+        if not external_ref:
+            return JSONResponse(status_code=400, content={"error": "External reference not found in state"})
         
-        # Create GitHub check run
-        check_run = github_client.create_check_run(
-            owner=owner,
-            repo=repo,
-            sha=external_ref,
-            name="PORC Terraform Plan"
-        )
-        check_run_id = check_run["id"]
-        
-        # Get workspace name based on GitHub repository and environment
-        workspace_name = get_workspace_name()
-        
-        # Try to acquire workspace lock
-        if not state_service.acquire_lock(workspace_name, run_id):
-            return JSONResponse(
-                status_code=409,
-                content={"error": f"Workspace {workspace_name} is locked by another operation"}
-            )
+        # Create check run
+        check_run = github_client.create_check_run(owner, repo, external_ref, f"PORC Plan - {run_id}")
         
         try:
-            # Update state to PLANNING
-            state_service.update_state(
-                run_id,
-                RunState.PLANNING,
-                workspace=workspace_name,
-                metadata={"check_run_id": check_run_id}
-            )
-            
-            # Initialize TFE client with configuration
-            tfe = TFEClient(
-                api_url=get_tfe_api(),
-                org=get_tfe_org()
-            )
-            
-            # Ensure workspace exists
+            # Run terraform plan
+            tfe = TFEClient()
+            workspace_name = get_workspace_name()
             workspace_id = ensure_workspace_exists(tfe, workspace_name)
             
-            # Create a new configuration version
-            config_version_id, upload_url = tfe.create_config_version(workspace_id)
+            # Get the bundle URL from state
+            bundle_url = state.get("bundle_url")
+            if not bundle_url:
+                return JSONResponse(status_code=400, content={"error": "Bundle URL not found in state"})
             
-            # Get deployment bundle from storage
-            bundle_key = record["bundle_key"]
-            bundle = storage_service.get_deployment_bundle(bundle_key)
+            # Create plan
+            plan_id = tfe.create_plan(workspace_id, bundle_url)
             
-            # Upload the configuration
-            tfe.upload_files(upload_url, bundle)
-            
-            # Wait for configuration version to be processed
-            max_retries = 10
-            retry_delay = 2
-            for attempt in range(max_retries):
-                try:
-                    # Create and start a run
-                    tfe_run_id = tfe.create_run(workspace_id, config_version_id)
-                    break
-                except TFEServiceError as e:
-                    if "Configuration version is still being processed" in str(e) and attempt < max_retries - 1:
-                        logging.info(f"Configuration version still processing, attempt {attempt + 1}/{max_retries}")
-                        time.sleep(retry_delay)
-                        continue
-                    raise
-            
-            # Wait for the run to complete
-            status = tfe.wait_for_run(tfe_run_id)
-            
-            # Get the plan output
-            plan_output = tfe.get_plan_output(tfe_run_id)
-            
-            # Update GitHub check run
-            conclusion = "success" if status == "planned_and_finished" else "failure"
-            output = {
-                "title": "Terraform Plan",
-                "summary": f"Plan status: {status}",
-                "text": plan_output[:TRUNCATE_OUTPUT]
-            }
+            # Update check run with plan URL
+            plan_url = f"https://app.terraform.io/app/{get_tfe_org()}/workspaces/{workspace_name}/runs/{plan_id}"
             github_client.update_check_run(
-                owner=owner,
-                repo=repo,
-                check_run_id=check_run_id,
+                owner, repo, check_run["id"],
                 status="completed",
-                conclusion=conclusion,
-                output=output
-            )
-            
-            # Update state based on plan result
-            new_state = RunState.PLANNED if status == "planned_and_finished" else RunState.PLAN_FAILED
-            state_service.update_state(
-                run_id,
-                new_state,
-                workspace=workspace_name,
-                metadata={
-                    "tfe_run_id": tfe_run_id,
-                    "plan_output": plan_output[:TRUNCATE_OUTPUT]
+                conclusion="success",
+                output={
+                    "title": "Terraform Plan",
+                    "summary": f"Plan created successfully. [View plan]({plan_url})"
                 }
             )
             
-            return {
-                "run_id": run_id,
-                "tfe_run_id": tfe_run_id,
-                "workspace": workspace_name,
-                "status": new_state.value,
-                "output": plan_output[:TRUNCATE_OUTPUT]
-            }
+            # Update state
+            await state_service.update_state(run_id, {
+                "status": "planned",
+                "plan_id": plan_id,
+                "plan_url": plan_url
+            })
             
-        finally:
-            # Always release the workspace lock
-            state_service.release_lock(workspace_name, run_id)
+            return {"status": "planned", "plan_id": plan_id, "plan_url": plan_url}
             
-    except ValueError as e:
-        error_msg = str(e)
-        logging.error(error_msg)
-        return JSONResponse(
-            status_code=400,
-            content={"error": error_msg}
-        )
-    except TFEServiceError as e:
-        error_msg = f"Terraform Cloud error: {str(e)}"
-        logging.error(error_msg)
-        return JSONResponse(
-            status_code=500,
-            content={"error": error_msg}
-        )
+        except Exception as e:
+            # Update check run with error
+            github_client.update_check_run(
+                owner, repo, check_run["id"],
+                status="completed",
+                conclusion="failure",
+                output={
+                    "title": "Error",
+                    "summary": f"Error running terraform plan: {str(e)}"
+                }
+            )
+            raise
+            
     except Exception as e:
-        error_msg = f"Error running terraform plan: {str(e)}"
-        logging.error(error_msg)
+        logging.error(f"Error running plan: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=500,
-            content={"error": error_msg}
+            content={"error": "Failed to run plan", "details": str(e)}
         )
 
 @app.post("/run/{run_id}/apply")
