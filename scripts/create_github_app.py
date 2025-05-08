@@ -2,10 +2,9 @@
 """
 Script to help set up a GitHub App for PORC.
 This script will:
-1. Generate a private key
-2. Guide you through creating the GitHub App manually
-3. Help install it on the specified repository
-4. Output the necessary credentials
+1. Guide you through creating the GitHub App manually
+2. Help install it on the specified repository
+3. Output the necessary credentials
 """
 
 import argparse
@@ -19,40 +18,14 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import requests
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.backends import default_backend
 
 
-def generate_private_key() -> tuple[str, str, str]:
-    """Generate a new RSA private key and return PEM, base64 encoded, and public key versions."""
-    private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-        backend=default_backend()
-    )
-    
-    # Get PEM format
-    pem = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption()
-    ).decode('utf-8')
-    
-    # Get base64 encoded version
-    b64 = base64.b64encode(pem.encode('utf-8')).decode('utf-8')
-    
-    # Get public key
-    public_key = private_key.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
-    ).decode('utf-8')
-    
-    return pem, b64, public_key
-
-
-def get_installation_id(app_id: int, private_key: str, owner: str, repo: str) -> int:
+def get_installation_id(app_id: int, private_key_path: str, owner: str, repo: str) -> int:
     """Get the installation ID for the GitHub App using JWT authentication."""
+    # Read private key
+    with open(private_key_path, 'r') as f:
+        private_key = f.read()
+    
     # Generate JWT
     now = int(time.time())
     payload = {
@@ -93,18 +66,6 @@ def main():
     
     args = parser.parse_args()
     
-    # Generate private key
-    print("Generating private key...")
-    private_key_pem, private_key_b64, public_key = generate_private_key()
-    
-    # Save private key
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    private_key_path = output_dir / 'private-key.pem'
-    with open(private_key_path, 'w') as f:
-        f.write(private_key_pem)
-    
     print("\n=== GitHub App Setup Instructions ===")
     print("1. Go to https://github.com/settings/apps/new")
     print("2. Fill in the following details:")
@@ -122,10 +83,13 @@ def main():
     print("   - Pull request")
     print("\n5. Where can this GitHub App be installed?")
     print("   - Select 'Only on this account'")
-    print("\n6. For the private key, copy and paste this public key:")
-    print("\n" + public_key + "\n")
+    print("\n6. For the private key:")
+    print("   a. Go to your GitHub App settings (https://github.com/settings/apps/porc-checks-bot)")
+    print("   b. Scroll down to the 'Private keys' section")
+    print("   c. Click 'Generate a private key' button")
+    print("   d. Save the downloaded .pem file")
     
-    input("\nPress Enter after you've created the GitHub App and uploaded the public key...")
+    private_key_path = input("\nEnter the path to the downloaded .pem file: ")
     
     # Get app ID
     app_id = input("\nEnter the App ID (found in the app's settings page): ")
@@ -133,7 +97,7 @@ def main():
     # Get installation ID
     print("\nGetting installation ID...")
     try:
-        installation_id = get_installation_id(int(app_id), private_key_pem, args.owner, args.repo)
+        installation_id = get_installation_id(int(app_id), private_key_path, args.owner, args.repo)
     except Exception as e:
         print(f"\nError getting installation ID: {e}")
         print("\nPlease install the app on your repository first:")
@@ -142,9 +106,17 @@ def main():
         print("3. Select your repository")
         print("4. Click 'Install'")
         input("\nPress Enter after installing the app...")
-        installation_id = get_installation_id(int(app_id), private_key_pem, args.owner, args.repo)
+        installation_id = get_installation_id(int(app_id), private_key_path, args.owner, args.repo)
+    
+    # Read private key for config
+    with open(private_key_path, 'r') as f:
+        private_key = f.read()
+    private_key_b64 = base64.b64encode(private_key.encode('utf-8')).decode('utf-8')
     
     # Save app configuration
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
     config = {
         'app_id': int(app_id),
         'private_key': private_key_b64,
@@ -157,7 +129,6 @@ def main():
         json.dump(config, f, indent=2)
     
     print("\nGitHub App setup completed successfully!")
-    print(f"Private key saved to: {private_key_path}")
     print(f"Configuration saved to: {config_path}")
     print("\nNext steps:")
     print("1. Add the private key and app ID to your Kubernetes secrets")
