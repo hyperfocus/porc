@@ -6,6 +6,11 @@ on:
     branches:
       - "*"
   workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Base URL for the PORC API'
+        required: false
+        default: 'https://172.212.51.168/'
 
 jobs:
   test:
@@ -28,7 +33,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest test/ --pr-id ${{ github.event.number }} --pr-sha ${{ github.sha }}
+          pytest test/ --base-url=${{ github.event.inputs.base_url || 'https://172.212.51.168/' }} --pr-id ${{ github.event.number }} --pr-sha ${{ github.sha }} --ignore-ssl
         env:
           PR_ID: ${{ github.event.number }}
           PR_SHA: ${{ github.sha }}
