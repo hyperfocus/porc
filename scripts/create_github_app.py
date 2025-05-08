@@ -51,7 +51,7 @@ def get_installation_id(app_id: int, private_key: str, owner: str, repo: str) ->
     now = int(time.time())
     payload = {
         'iat': now,
-        'exp': now + 600,  # 10 minutes
+        'exp': now + 300,  # 5 minutes (GitHub's max is 10 minutes)
         'iss': app_id
     }
     
