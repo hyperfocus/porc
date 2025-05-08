@@ -27,7 +27,7 @@ class GitHubClient:
         return self._session
     
     @property
-    def token(self) -> str:
+    async def token(self) -> str:
         """Get the GitHub token, initializing it if needed."""
         if self._token is None:
             if self._app_type == "app":
@@ -45,12 +45,13 @@ class GitHubClient:
                     'Authorization': f'Bearer {jwt_token}',
                     'Accept': 'application/vnd.github.v3+json'
                 }
-                response = requests.post(
+                session = await self.session
+                async with session.post(
                     f'https://api.github.com/app/installations/{self._installation_id}/access_tokens',
                     headers=headers
-                )
-                response.raise_for_status()
-                self._token = response.json()['token']
+                ) as response:
+                    response.raise_for_status()
+                    self._token = (await response.json())['token']
             else:
                 # Use PAT
                 self._token = os.getenv("GITHUB_TOKEN")
@@ -59,17 +60,18 @@ class GitHubClient:
         return self._token
     
     @property
-    def headers(self) -> Dict[str, str]:
+    async def headers(self) -> Dict[str, str]:
         """Get the request headers, initializing them if needed."""
         if self._headers is None:
+            token = await self.token
             if self._app_type == "app":
                 self._headers = {
-                    "Authorization": f"Bearer {self.token}",
+                    "Authorization": f"Bearer {token}",
                     "Accept": "application/vnd.github.v3+json"
                 }
             else:
                 self._headers = {
-                    "Authorization": f"token {self.token}",
+                    "Authorization": f"token {token}",
                     "Accept": "application/vnd.github.v3+json"
                 }
         return self._headers
@@ -83,7 +85,8 @@ class GitHubClient:
             "status": "in_progress"
         }
         session = await self.session
-        async with session.post(url, headers=self.headers, json=data) as response:
+        headers = await self.headers
+        async with session.post(url, headers=headers, json=data) as response:
             response.raise_for_status()
             return await response.json()
     
@@ -98,7 +101,8 @@ class GitHubClient:
             "output": output
         }
         session = await self.session
-        async with session.patch(url, headers=self.headers, json=data) as response:
+        headers = await self.headers
+        async with session.patch(url, headers=headers, json=data) as response:
             response.raise_for_status()
             return await response.json()
     
