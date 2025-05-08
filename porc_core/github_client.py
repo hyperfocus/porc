@@ -3,7 +3,7 @@ PORC Core GitHub: Client for interacting with GitHub Checks API.
 """
 import os
 import logging
-import requests
+import aiohttp
 import jwt
 import time
 from typing import Dict, Any, Optional
@@ -17,6 +17,14 @@ class GitHubClient:
         self._installation_id = os.getenv("GITHUB_APP_INSTALLATION_ID")
         self._private_key = os.getenv("GITHUB_APP_PRIVATE_KEY")
         self._app_type = os.getenv("GITHUB_APP_TYPE", "pat")
+        self._session = None
+    
+    @property
+    async def session(self) -> aiohttp.ClientSession:
+        """Get or create an aiohttp session."""
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession()
+        return self._session
     
     @property
     def token(self) -> str:
@@ -66,7 +74,7 @@ class GitHubClient:
                 }
         return self._headers
     
-    def create_check_run(self, owner: str, repo: str, sha: str, name: str) -> Dict[str, Any]:
+    async def create_check_run(self, owner: str, repo: str, sha: str, name: str) -> Dict[str, Any]:
         """Create a new check run."""
         url = f"https://api.github.com/repos/{owner}/{repo}/check-runs"
         data = {
@@ -74,11 +82,12 @@ class GitHubClient:
             "head_sha": sha,
             "status": "in_progress"
         }
-        response = requests.post(url, headers=self.headers, json=data)
-        response.raise_for_status()
-        return response.json()
+        session = await self.session
+        async with session.post(url, headers=self.headers, json=data) as response:
+            response.raise_for_status()
+            return await response.json()
     
-    def update_check_run(self, owner: str, repo: str, check_run_id: int, 
+    async def update_check_run(self, owner: str, repo: str, check_run_id: int, 
                         status: str, conclusion: Optional[str] = None,
                         output: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Update an existing check run."""
@@ -88,9 +97,15 @@ class GitHubClient:
             "conclusion": conclusion,
             "output": output
         }
-        response = requests.patch(url, headers=self.headers, json=data)
-        response.raise_for_status()
-        return response.json()
+        session = await self.session
+        async with session.patch(url, headers=self.headers, json=data) as response:
+            response.raise_for_status()
+            return await response.json()
+    
+    async def close(self):
+        """Close the aiohttp session."""
+        if self._session and not self._session.closed:
+            await self._session.close()
 
 def get_github_client() -> GitHubClient:
     """Get a GitHub client instance."""

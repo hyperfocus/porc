@@ -281,21 +281,29 @@ async def plan_run(
         if not state:
             return JSONResponse(status_code=404, content={"error": "Run not found"})
         
-        # Get source repository from state
-        source_repo = state.get("blueprint", {}).get("source_repo")
+        # Get the blueprint record
+        meta_file = f"{DB_PATH}/{run_id}.json"
+        if not os.path.exists(meta_file):
+            return JSONResponse(status_code=404, content={"error": "Run ID not found"})
+        
+        with open(meta_file) as f:
+            record = json.load(f)
+        
+        # Get source repository from blueprint record
+        source_repo = record.get("source_repo")
         if not source_repo:
             return JSONResponse(status_code=400, content={"error": "Source repository not found in blueprint"})
         
         # Extract owner and repo from source_repo
         owner, repo = source_repo.split("/")
         
-        # Get external reference (PR SHA) from state
-        external_ref = state.get("external_reference")
+        # Get external reference (PR SHA) from blueprint record
+        external_ref = record.get("external_reference")
         if not external_ref:
-            return JSONResponse(status_code=400, content={"error": "External reference not found in state"})
+            return JSONResponse(status_code=400, content={"error": "External reference not found in blueprint"})
         
         # Create check run
-        check_run = github_client.create_check_run(owner, repo, external_ref, f"PORC Plan - {run_id}")
+        check_run = await github_client.create_check_run(owner, repo, external_ref, f"PORC Plan - {run_id}")
         
         try:
             # Run terraform plan
@@ -313,7 +321,7 @@ async def plan_run(
             
             # Update check run with plan URL
             plan_url = f"https://app.terraform.io/app/{get_tfe_org()}/workspaces/{workspace_name}/runs/{plan_id}"
-            github_client.update_check_run(
+            await github_client.update_check_run(
                 owner, repo, check_run["id"],
                 status="completed",
                 conclusion="success",
@@ -324,17 +332,20 @@ async def plan_run(
             )
             
             # Update state
-            await state_service.update_state(run_id, {
-                "status": "planned",
-                "plan_id": plan_id,
-                "plan_url": plan_url
-            })
+            state_service.update_state(
+                run_id,
+                RunState.PLANNED,
+                metadata={
+                    "plan_id": plan_id,
+                    "plan_url": plan_url
+                }
+            )
             
             return {"status": "planned", "plan_id": plan_id, "plan_url": plan_url}
             
         except Exception as e:
             # Update check run with error
-            github_client.update_check_run(
+            await github_client.update_check_run(
                 owner, repo, check_run["id"],
                 status="completed",
                 conclusion="failure",

@@ -10,6 +10,7 @@ from enum import Enum
 from typing import Dict, Any, Optional
 from azure.data.tables import TableServiceClient, TableClient
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
+import asyncio
 
 class RunState(str, Enum):
     SUBMITTED = "submitted"
@@ -62,7 +63,12 @@ class StateService:
     async def get_state(self, run_id: str) -> Dict[str, Any]:
         """Get the current state of a run."""
         try:
-            entity = self.table_client.get_entity(partition_key=run_id, row_key=run_id)
+            # Run the synchronous Azure Table Storage operation in a thread pool
+            loop = asyncio.get_event_loop()
+            entity = await loop.run_in_executor(
+                None,
+                lambda: self.table_client.get_entity(partition_key=run_id, row_key=run_id)
+            )
             return dict(entity)
         except ResourceNotFoundError:
             return {}
