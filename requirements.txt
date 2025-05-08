@@ -10,3 +10,4 @@ pytest
 pytest-asyncio
 azure-storage-blob
 azure-data-tables
+cryptography>=41.0.0
