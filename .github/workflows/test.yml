@@ -28,7 +28,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest tests/ --pr-id ${{ github.event.number }} --pr-sha ${{ github.sha }}
+          pytest test/ --pr-id ${{ github.event.number }} --pr-sha ${{ github.sha }}
         env:
           PR_ID: ${{ github.event.number }}
           PR_SHA: ${{ github.sha }}
