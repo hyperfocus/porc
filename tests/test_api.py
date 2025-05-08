@@ -40,7 +40,7 @@ async def test_full_porc_workflow(async_client, headers, pr_sha, repo_full):
     assert "run_id" in data
     run_id = data["run_id"]
 
-    # Step 2: Build
+    # Step 2: Buildd
     resp = await request(async_client, "post", f"/run/{run_id}/build", headers=headers)
     assert resp.status_code in (200, 202)
     build_data = resp.json() if hasattr(resp, 'json') else {}
