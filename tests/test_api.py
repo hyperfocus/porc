@@ -22,7 +22,7 @@ async def request(client, method, url, headers=None, json=None):
         return await getattr(client, method)(url, headers=headers)
 
 @pytest.mark.asyncio
-async def test_full_porc_workflow(async_client, headers, pr_sha):
+async def test_full_porc_workflow(async_client, headers, pr_sha, repo_full):
     # Step 1: Submit Blueprint
     blueprint = {
         "kind": "postgres-db",
@@ -32,7 +32,7 @@ async def test_full_porc_workflow(async_client, headers, pr_sha):
         },
         "schema_version": "1.0.0",
         "external_reference": pr_sha or "pr-123",
-        "source_repo": "myorg/myrepo"
+        "source_repo": repo_full or "myorg/myrepo"
     }
     resp = await request(async_client, "post", "/blueprint", headers=headers, json=blueprint)
     assert resp.status_code == 200
@@ -72,13 +72,13 @@ async def test_full_porc_workflow(async_client, headers, pr_sha):
     assert resp.status_code in (200, 404)
 
 @pytest.mark.asyncio
-async def test_full_lifecycle_all_routes(async_client, headers):
+async def test_full_lifecycle_all_routes(async_client, headers, repo_full):
     blueprint = {
         "kind": "postgres-db",
         "variables": {},
         "schema_version": "1.0.0",
         "external_reference": "test-pr-123",
-        "source_repo": "test-org/test-repo"
+        "source_repo": repo_full or "test-org/test-repo"
     }
 
     # Submit blueprint

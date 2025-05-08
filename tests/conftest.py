@@ -34,6 +34,24 @@ def pytest_addoption(parser):
         help="GitHub PR commit SHA",
         action="store",
     )
+    parser.addoption(
+        "--org",
+        default=None,
+        help="GitHub org",
+        action="store",
+    )
+    parser.addoption(
+        "--repo",
+        default=None,
+        help="GitHub repo",
+        action="store",
+    )
+    parser.addoption(
+        "--repo-full",
+        default=None,
+        help="GitHub org/repo",
+        action="store",
+    )
 
 @pytest.fixture(autouse=True)
 def setup_test_env():
@@ -78,6 +96,18 @@ def pr_id(request):
 @pytest.fixture
 def pr_sha(request):
     return request.config.getoption("--pr-sha")
+
+@pytest.fixture
+def org(request):
+    return request.config.getoption("--org")
+
+@pytest.fixture
+def repo(request):
+    return request.config.getoption("--repo")
+
+@pytest.fixture
+def repo_full(request):
+    return request.config.getoption("--repo-full")
 
 @pytest.fixture
 def client():
