@@ -15,7 +15,11 @@ def async_client(base_url, ignore_ssl):
     return AsyncClient(base_url=base_url, verify=not ignore_ssl)
 
 async def request(client, method, url, headers=None, json=None):
-    return await getattr(client, method)(url, headers=headers, json=json)
+    method = method.lower()
+    if method in ("post", "put", "patch"):
+        return await getattr(client, method)(url, headers=headers, json=json)
+    else:
+        return await getattr(client, method)(url, headers=headers)
 
 @pytest.mark.asyncio
 async def test_full_porc_workflow(async_client, headers, pr_sha):
