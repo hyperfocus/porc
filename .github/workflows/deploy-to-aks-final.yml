@@ -8,7 +8,7 @@ on:
 env:
   ACR_NAME: porcupine
   RESOURCE_GROUP: dev
-  CLUSTER_NAME: porc
+  CLUSTER_NAME: cheap-porc
   IMAGE_NAME: porc
 
 jobs:
@@ -67,7 +67,7 @@ jobs:
 
       - name: Set AKS Context
         run: |
-          az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME
+          az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --overwrite-existing
 
       - name: Log in to ACR
         run: |

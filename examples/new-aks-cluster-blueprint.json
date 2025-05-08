@@ -1,0 +1,27 @@
+{
+  "kind": "aks-cluster",
+  "schema_version": "1.0.0",
+  "owner": "devops@td.com",
+  "approval_required": true,
+  "change_record": "CHG123456",
+  "description": "Create a new AKS cluster for PORC migration",
+  "inputs": {
+    "cluster_name": "porc-new-cluster",
+    "resource_group_name": "porc-rg",
+    "location": "eastus",
+    "vnet_name": "porc-vnet",
+    "kubernetes_version": "1.27.7",
+    "node_count": 3,
+    "node_vm_size": "Standard_D4s_v3",
+    "enable_auto_scaling": true,
+    "min_count": 1,
+    "max_count": 5,
+    "network_plugin": "azure",
+    "network_policy": "azure",
+    "dns_service_ip": "10.0.0.10",
+    "service_cidr": "10.0.0.0/16",
+    "pod_cidr": "10.244.0.0/16",
+    "environment": "prod",
+    "app_name": "porc"
+  }
+} 
