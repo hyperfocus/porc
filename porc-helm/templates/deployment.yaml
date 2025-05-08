@@ -39,11 +39,23 @@ spec:
               value: {{ .Values.tfe.env | quote }}
             - name: GITHUB_REPOSITORY
               value: {{ .Values.github.repository | quote }}
-            - name: GITHUB_TOKEN
+            - name: GITHUB_APP_TYPE
+              value: "app"
+            - name: GITHUB_APP_ID
               valueFrom:
                 secretKeyRef:
-                  name: github-secrets
-                  key: github-token
+                  name: github-app-id
+                  key: id
+            - name: GITHUB_APP_INSTALLATION_ID
+              valueFrom:
+                secretKeyRef:
+                  name: github-app-installation-id
+                  key: id
+            - name: GITHUB_APP_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: github-app-key
+                  key: private_key
             - name: STORAGE_ACCOUNT
               value: {{ .Values.storage.account | quote }}
             - name: STORAGE_ACCESS_KEY
