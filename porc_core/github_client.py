@@ -97,15 +97,27 @@ class GitHubClient:
         url = f"https://api.github.com/repos/{owner}/{repo}/check-runs"
         # Extract run_id from name (format: "PORC Plan - {run_id}" or "PORC Terraform Apply")
         run_id = name.split(" - ")[-1] if " - " in name else "unknown"
+        
+        # Create a more detailed message
+        summary = f"""
+## PORC Infrastructure Run
+**Run ID**: `{run_id}`
+**Repository**: {owner}/{repo}
+**Commit**: {sha}
+
+Starting infrastructure operation. This check will be updated with results.
+"""
+
         data = {
             "name": name,
             "head_sha": sha,
             "status": "in_progress",
             "started_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
             "output": {
-                "title": name,
-                "summary": f"Starting check run for run_id: {run_id}"
-            }
+                "title": f"PORC Run: {run_id}",
+                "summary": summary
+            },
+            "details_url": f"https://github.com/{owner}/{repo}/pull/{sha}"  # Link to the PR
         }
         session = await self.session
         headers = await self.headers
@@ -131,27 +143,55 @@ class GitHubClient:
         """Update an existing check run."""
         url = f"https://api.github.com/repos/{owner}/{repo}/check-runs/{check_run_id}"
         
-        # Extract run_id from output title if available
+        # Extract run_id and other info from output title if available
         run_id = "unknown"
         if output and "title" in output:
             title_parts = output["title"].split(" - ")
             if len(title_parts) > 1:
                 run_id = title_parts[-1]
         
-        # Add run_id to summary if not already present
-        if output and "summary" in output and "run_id" not in output["summary"].lower():
-            output["summary"] = f"Run ID: {run_id}\n{output['summary']}"
+        # If there's an existing summary, enhance it with run details
+        if output and "summary" in output:
+            original_summary = output["summary"]
+            enhanced_summary = f"""
+## PORC Infrastructure Run
+**Run ID**: `{run_id}`
+**Repository**: {owner}/{repo}
+**Status**: {status}
+**Conclusion**: {conclusion if conclusion else 'In Progress'}
+
+{original_summary}
+"""
+            output["summary"] = enhanced_summary
+            
+            # Update title to include run ID if not present
+            if "title" in output and run_id not in output["title"]:
+                output["title"] = f"{output['title']} (Run: {run_id})"
         
         data = {
             "status": status,
             "conclusion": conclusion,
-            "output": output
+            "output": output,
+            "details_url": f"https://github.com/{owner}/{repo}/pull/{run_id}"  # Maintain PR link
         }
+        
         session = await self.session
         headers = await self.headers
+        logging.info("=== GitHub Check Run Update API Request ===")
+        logging.info(f"Method: PATCH")
+        logging.info(f"URL: {url}")
+        logging.info(f"Headers: {json.dumps(headers, indent=2)}")
+        logging.info(f"Request Body: {json.dumps(data, indent=2)}")
         async with session.patch(url, headers=headers, json=data) as response:
-            response.raise_for_status()
-            return await response.json()
+            response_text = await response.text()
+            logging.info(f"Response Status: {response.status}")
+            logging.info(f"Response Body: {response_text}")
+            if response.status != 200:
+                logging.error(f"Failed to update check run: {response_text}")
+                raise Exception(f"Failed to update check run: {response_text}")
+            result = json.loads(response_text)
+            logging.info(f"Successfully updated check run: {json.dumps(result, indent=2)}")
+            return result
     
     async def close(self):
         """Close the aiohttp session."""
