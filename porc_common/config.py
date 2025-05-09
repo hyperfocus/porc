@@ -12,7 +12,7 @@ def get_tfe_token():
     return get_env("TFE_TOKEN", required=True)
 
 def get_tfe_api():
-    return get_env("TFE_API", default="https://app.terraform.io/api/v2")
+    return get_env("TFE_API", default="https://app.terraform.io")
 
 def get_tfe_org():
     return get_env("TFE_ORG", default="porc_test")

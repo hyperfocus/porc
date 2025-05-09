@@ -38,17 +38,22 @@ class TFEClient:
         if not self.api_url:
             raise ValueError("TFE_API environment variable is not set")
             
-        # Normalize API URL - remove trailing /api/v2 if present since we add it in the endpoint methods
+        # Normalize API URL - remove trailing slashes and /api/v2 if present
+        self.api_url = self.api_url.rstrip('/')
         if self.api_url.endswith('/api/v2'):
-            self.api_url = self.api_url[:-8]  # Remove /api/v2
-        elif self.api_url.endswith('/api/v2/'):
-            self.api_url = self.api_url[:-9]  # Remove /api/v2/
+            self.api_url = self.api_url[:-8]
+            
+        # Validate API URL format
+        if not self.api_url.startswith(('http://', 'https://')):
+            raise ValueError(f"Invalid API URL format: {self.api_url}")
+            
+        logging.info(f"Initializing TFE client with base URL: {self.api_url}")
             
         self.org = org or get_tfe_org()
         if not self.org:
             raise ValueError("TFE_ORG environment variable is not set")
             
-        logging.info(f"Initializing TFE client for org: {self.org}, API: {self.api_url}")
+        logging.info(f"Using organization: {self.org}")
         
         # Validate token format
         if not self.token.startswith(('at-', 'tk-')):
@@ -96,7 +101,8 @@ class TFEClient:
         """Helper to perform HTTP requests with retries, timeout, and logging."""
         # Ensure URL has https scheme if it's a relative path
         if not url.startswith('http'):
-            url = f"{self.api_url}/{url.lstrip('/')}"
+            # Add /api/v2 prefix and ensure no double slashes
+            url = f"{self.api_url}/api/v2/{url.lstrip('/')}"
             
         logging.info(f"Making request: {method} {url}")
         if kwargs.get('json'):
