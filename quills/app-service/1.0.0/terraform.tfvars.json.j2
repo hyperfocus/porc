@@ -1,0 +1,21 @@
+{
+  "resource_group_name": "{{ resource_group_name }}",
+  "location": "{{ location }}",
+  "tags": {
+    "environment": "{{ environment }}",
+    "application": "{{ app_name }}"
+  },
+  "vnet_name": "{{ vnet_name }}",
+  "vnet_address_space": "10.0.0.0/16",
+  "app_subnet_prefix": "10.0.1.0/24",
+  "app_service_plan_name": "{{ app_service_plan_name }}",
+  "app_service_plan_sku": "{{ app_service_plan_sku }}",
+  "app_service_name": "{{ app_service_name }}",
+  "os_type": "{{ os_type }}",
+  "runtime_stack": "{{ runtime_stack }}",
+  "runtime_version": "{{ runtime_version }}",
+  "java_server": "{{ java_server | default('JAVA') }}",
+  "app_settings": {{ app_settings | to_json }},
+  "custom_domain_name": "{{ custom_domain_name | default('') }}",
+  "custom_domain_prefix": "{{ custom_domain_prefix | default('') }}"
+} 

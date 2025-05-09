@@ -2,3 +2,13 @@ __pycache__/
 .env
 *.tfvars.json
 *.zip
+
+# Test environment files
+tests/.env.test
+tests/.env.test.*
+!tests/.env.test.example
+
+# Kubernetes secrets
+k8s/secrets/
+*.pem
+github-app-config.json
