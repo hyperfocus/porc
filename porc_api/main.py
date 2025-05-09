@@ -288,6 +288,38 @@ async def plan_run(
         if not state:
             return JSONResponse(status_code=404, content={"error": "Run not found"})
         
+        # Ensure state is a dictionary
+        if isinstance(state, str):
+            try:
+                state = json.loads(state)
+            except json.JSONDecodeError:
+                return JSONResponse(
+                    status_code=500,
+                    content={"error": "Invalid state format", "details": "State is not a valid JSON object"}
+                )
+        
+        # Get the bundle URL from state
+        metadata = state.get("metadata", {})
+        if not isinstance(metadata, dict):
+            metadata = {}
+        
+        bundle_url = metadata.get("bundle_url")
+        if not bundle_url:
+            # If bundle URL not in state, try to generate it from bundle key
+            bundle_key = metadata.get("bundle_key")
+            if not bundle_key:
+                return JSONResponse(status_code=400, content={"error": "Bundle key not found in state"})
+            try:
+                bundle_url = storage_service.get_bundle_url(bundle_key)
+                # Update state with bundle URL
+                state_service.update_state(
+                    run_id,
+                    state.get("state", RunState.BUILT.value),
+                    metadata={**metadata, "bundle_url": bundle_url}
+                )
+            except ValueError as e:
+                return JSONResponse(status_code=400, content={"error": f"Failed to generate bundle URL: {str(e)}"})
+        
         # Get the blueprint record
         meta_file = f"{DB_PATH}/{run_id}.json"
         if not os.path.exists(meta_file):
@@ -319,24 +351,6 @@ async def plan_run(
             tfe = TFEClient()
             workspace_name = get_workspace_name()
             workspace_id = ensure_workspace_exists(tfe, workspace_name)
-            
-            # Get the bundle URL from state
-            bundle_url = state.get("metadata", {}).get("bundle_url")
-            if not bundle_url:
-                # If bundle URL not in state, try to generate it from bundle key
-                bundle_key = state.get("metadata", {}).get("bundle_key")
-                if not bundle_key:
-                    return JSONResponse(status_code=400, content={"error": "Bundle key not found in state"})
-                try:
-                    bundle_url = storage_service.get_bundle_url(bundle_key)
-                    # Update state with bundle URL
-                    state_service.update_state(
-                        run_id,
-                        state.get("state", RunState.BUILT.value),
-                        metadata={**state.get("metadata", {}), "bundle_url": bundle_url}
-                    )
-                except ValueError as e:
-                    return JSONResponse(status_code=400, content={"error": f"Failed to generate bundle URL: {str(e)}"})
             
             # Create plan
             plan_id = tfe.create_plan(workspace_id, bundle_url)
