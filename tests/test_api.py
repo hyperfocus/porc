@@ -63,7 +63,7 @@ async def test_full_porc_workflow(async_client, headers, pr_sha, repo_full):
     apply_data = resp.json() if hasattr(resp, 'json') else {}
     assert "status" in apply_data or resp.status_code in (400, 500)
 
-    # Step 5: Status
+    # Step 5: Status ddd
     resp = await request(async_client, "get", f"/run/{run_id}/status", headers=headers)
     assert resp.status_code == 200
     status_data = resp.json()
