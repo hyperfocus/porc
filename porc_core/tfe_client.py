@@ -60,10 +60,10 @@ class TFEClient:
             
         logging.info(f"Using organization: {self.org}")
         
-        # Validate token format
+        # Validate token format and permissions
         if not self.token.startswith(('at-', 'tk-')):
             logging.warning("TFE token does not start with expected prefix (at- or tk-)")
-            
+        
         self.headers = {
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/vnd.api+json"
@@ -71,6 +71,40 @@ class TFEClient:
         self.timeout = 10  # seconds
         self.max_retries = 3
         self.retry_delay = 2
+        
+        # Test token permissions
+        try:
+            # First test read permissions
+            logging.info("Testing token read permissions...")
+            test_url = f"{self.api_url}/api/v2/organizations/{self.org}"
+            r = requests.get(test_url, headers=self.headers, timeout=self.timeout)
+            if r.status_code == 200:
+                logging.info("✓ Token has read permissions")
+            else:
+                logging.error(f"✗ Token lacks read permissions (status: {r.status_code})")
+                if r.status_code == 404:
+                    logging.error("This might be a GitHub token or invalid token - please ensure you're using a Terraform Cloud API token")
+            
+            # Test write permissions by attempting to list token's entitlements
+            logging.info("Testing token write permissions...")
+            test_url = f"{self.api_url}/api/v2/account/details"
+            r = requests.get(test_url, headers=self.headers, timeout=self.timeout)
+            if r.status_code == 200:
+                data = r.json()
+                if "data" in data and "attributes" in data["data"]:
+                    entitlements = data["data"]["attributes"].get("permissions", [])
+                    logging.info(f"Token permissions: {', '.join(entitlements)}")
+                    if not any(p in entitlements for p in ["can_create_configuration_versions", "can_write"]):
+                        logging.error("✗ Token lacks required write permissions for configuration versions")
+                else:
+                    logging.error("✗ Could not determine token permissions")
+            else:
+                logging.error(f"✗ Failed to check token permissions (status: {r.status_code})")
+                
+        except Exception as e:
+            logging.error(f"Failed to validate token permissions: {str(e)}")
+            # Don't raise here - just warn and continue
+            logging.warning("Token validation failed but continuing - some operations may fail")
 
     def _log_request_details(self, method: str, url: str, headers: Dict[str, str], **kwargs) -> None:
         """Log request details with sensitive information redacted."""
@@ -104,6 +138,10 @@ class TFEClient:
 
     def _build_url(self, endpoint: str) -> str:
         """Build a complete API URL from an endpoint path."""
+        # If it's already a full URL, return it as is
+        if endpoint.startswith(('http://', 'https://')):
+            return endpoint
+            
         # Remove leading/trailing slashes from endpoint
         endpoint = endpoint.strip('/')
         # Ensure we have /api/v2 prefix
@@ -180,7 +218,8 @@ class TFEClient:
 
     def create_config_version(self, workspace_id):
         """Create a new configuration version for a workspace."""
-        endpoint = f"workspaces/{workspace_id}/configuration-versions"
+        # Use the full workspace path to ensure compatibility with the API
+        endpoint = f"api/v2/workspaces/{workspace_id}/configuration-versions"
         payload = {
             "data": {
                 "type": "configuration-versions",
@@ -263,6 +302,35 @@ class TFEClient:
             raise TFEServiceError(r.status_code, f"Malformed response from {endpoint}: {data}")
         return data["data"]["id"]
 
+    def wait_for_configuration(self, config_version_id: str, max_wait_seconds: int = 30) -> None:
+        """Wait for a configuration version to be processed."""
+        endpoint = f"configuration-versions/{config_version_id}"
+        start_time = time.time()
+        
+        while True:
+            if time.time() - start_time > max_wait_seconds:
+                raise TFEServiceError(-1, f"Configuration version {config_version_id} did not finish processing within {max_wait_seconds} seconds")
+                
+            r = self._request_with_retries("GET", endpoint)
+            if r.status_code != 200:
+                logging.error(f"Failed to get configuration version status: {r.text}")
+                raise TFEServiceError(r.status_code, f"{endpoint}: {r.text}")
+                
+            data = r.json()
+            if "data" not in data or "attributes" not in data["data"] or "status" not in data["data"]["attributes"]:
+                logging.error(f"Malformed response from {endpoint}: {data}")
+                raise TFEServiceError(r.status_code, f"Malformed response from {endpoint}: {data}")
+                
+            status = data["data"]["attributes"]["status"]
+            logging.info(f"Configuration version {config_version_id} status: {status}")
+            
+            if status == "uploaded":
+                return
+            elif status in ["errored", "failed"]:
+                raise TFEServiceError(-1, f"Configuration version {config_version_id} failed processing with status: {status}")
+                
+            time.sleep(2)  # Wait 2 seconds before checking again
+
     def create_plan(self, workspace_id, bundle_url):
         """Create a new plan using a configuration bundle URL."""
         logging.info(f"Creating plan for workspace {workspace_id} with bundle {bundle_url}")
@@ -291,6 +359,11 @@ class TFEClient:
                 logging.error(error_msg)
                 raise TFEServiceError(r.status_code, error_msg)
             logging.info("Successfully uploaded configuration")
+            
+            # Wait for configuration to be processed
+            logging.info(f"Waiting for configuration version {config_version_id} to be processed")
+            self.wait_for_configuration(config_version_id)
+            logging.info(f"Configuration version {config_version_id} is ready")
             
             # Create and return the run ID
             logging.info(f"Creating run for workspace {workspace_id} with config version {config_version_id}")
