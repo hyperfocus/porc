@@ -20,6 +20,7 @@ class StorageService:
         
         account_name = os.getenv("STORAGE_ACCOUNT")
         account_key = os.getenv("STORAGE_ACCESS_KEY")
+        
         if not account_name or not account_key:
             raise ValueError("Azure Storage account name and access key are required")
         
@@ -86,5 +87,6 @@ class StorageService:
         except ResourceNotFoundError:
             raise ValueError(f"QUILL template not found: {template_key}")
 
-# Initialize the storage service
-storage_service = StorageService() 
+def get_storage_service() -> StorageService:
+    """Get a storage service instance."""
+    return StorageService() 
