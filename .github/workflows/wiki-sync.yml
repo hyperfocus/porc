@@ -19,15 +19,26 @@ jobs:
         run: |
           git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git wiki
 
-      - name: Copy docs to wiki
+      - name: Sync docs to wiki
         run: |
+          # Remove all existing .md and .png files from wiki (except _Sidebar.md and _Footer.md)
+          cd wiki
+          find . -maxdepth 1 -type f \( -name "*.md" -o -name "*.png" \) ! -name "_Sidebar.md" ! -name "_Footer.md" -exec rm {} +
+          cd ..
+          
+          # Copy current docs
           cp docs/*.{md,png} wiki/
+          
+          # Special handling for renamed files
+          if [ -f "docs/home.md" ]; then
+            cp docs/home.md wiki/Home.md  # Wiki expects capitalized Home.md
+          fi
 
       - name: Commit and push to wiki
         run: |
           cd wiki
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
+          git add -A  # Stage all changes including deletions
           git commit -m "Sync docs to wiki [automated]" || echo "No changes to commit"
           git push
