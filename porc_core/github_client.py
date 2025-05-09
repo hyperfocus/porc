@@ -113,25 +113,30 @@ class GitHubClient:
         
         return base_url
 
-    async def create_check_run(self, owner: str, repo: str, sha: str, name: str) -> Dict[str, Any]:
+    async def create_check_run(self, owner: str, repo: str, sha: str, name: str, run_id: str) -> Dict[str, Any]:
         """Create a new check run."""
         # Validate SHA format
         if not self._validate_sha(sha):
             raise ValueError(f"Invalid SHA format: {sha}")
 
         url = f"https://api.github.com/repos/{owner}/{repo}/check-runs"
-        # Extract run_id from name (format: "PORC Plan - {run_id}" or "PORC Terraform Apply")
-        run_id = name.split(" - ")[-1] if " - " in name else "unknown"
         
-        # Create a more detailed message
-        summary = f"""
-## PORC Infrastructure Run
+        # Create initial message based on check type
+        title = "Run Started"
+        summary = ""
+        text = f"""## Run Details
 **Run ID**: `{run_id}`
 **Repository**: {owner}/{repo}
 **Commit**: {sha}
 
-Starting infrastructure operation. This check will be updated with results.
 """
+        
+        if name == "PORC Plan":
+            summary = "Preparing Terraform environment..."
+            text += "Initializing Terraform plan operation. This check will be updated with results."
+        elif name == "PORC Apply":
+            summary = "Preparing to apply infrastructure changes..."
+            text += "Initializing Terraform apply operation. This check will be updated with results."
 
         data = {
             "name": name,
@@ -139,11 +144,13 @@ Starting infrastructure operation. This check will be updated with results.
             "status": "in_progress",
             "started_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
             "output": {
-                "title": f"PORC Run: {run_id}",
-                "summary": summary
+                "title": title,
+                "summary": summary,
+                "text": text
             },
             "details_url": self._get_details_url(owner, repo, sha, run_id)
         }
+        
         session = await self.session
         headers = await self.headers
         logging.info("=== GitHub Check Run API Request ===")
@@ -151,6 +158,7 @@ Starting infrastructure operation. This check will be updated with results.
         logging.info(f"URL: {url}")
         logging.info(f"Headers: {json.dumps(headers, indent=2)}")
         logging.info(f"Request Body: {json.dumps(data, indent=2)}")
+        
         async with session.post(url, headers=headers, json=data) as response:
             response_text = await response.text()
             logging.info(f"Response Status: {response.status}")
@@ -168,37 +176,6 @@ Starting infrastructure operation. This check will be updated with results.
         """Update an existing check run."""
         url = f"https://api.github.com/repos/{owner}/{repo}/check-runs/{check_run_id}"
         
-        # Extract run_id and other info from output title if available
-        run_id = "unknown"
-        error_message = None
-        if output and "title" in output:
-            title_parts = output["title"].split(" - ")
-            if len(title_parts) > 1:
-                run_id = title_parts[-1].split(" —")[0]  # Handle "PORC Plan - run_id — Error" format
-                # Extract error message if present
-                if " — " in output["title"]:
-                    error_message = output["title"].split(" — ")[-1]
-        
-        # If there's an existing summary, enhance it with run details
-        if output and "summary" in output:
-            original_summary = output["summary"]
-            if not original_summary.startswith("## PORC Infrastructure Run"):
-                enhanced_summary = f"""
-## PORC Infrastructure Run
-**Run ID**: `{run_id}`
-**Repository**: {owner}/{repo}
-**Status**: {status}
-**Conclusion**: {conclusion if conclusion else 'In Progress'}
-{f"**Error**: {error_message}" if error_message else ""}
-
-{original_summary}
-"""
-                output["summary"] = enhanced_summary
-            
-            # Update title to include run ID if not present
-            if "title" in output and run_id not in output["title"]:
-                output["title"] = f"{output['title']} (Run: {run_id})"
-        
         # Get the SHA from the existing check run to use in details_url
         session = await self.session
         headers = await self.headers
@@ -206,8 +183,37 @@ Starting infrastructure operation. This check will be updated with results.
             if response.status == 200:
                 check_run = await response.json()
                 sha = check_run.get("head_sha", "")
+                name = check_run.get("name", "")
+                # Extract run_id from the text field
+                text = check_run.get("output", {}).get("text", "")
+                run_id = "unknown"
+                for line in text.split("\n"):
+                    if "**Run ID**:" in line:
+                        run_id = line.split("`")[1]
+                        break
             else:
-                sha = ""  # Fallback if we can't get the SHA
+                sha = ""
+                name = ""
+                run_id = "unknown"
+        
+        # If there's an existing summary, ensure it maintains the run details section
+        if output and "text" in output and not output["text"].startswith("## Run Details"):
+            # Get the original run details from the check run
+            async with session.get(url, headers=headers) as response:
+                if response.status == 200:
+                    check_run = await response.json()
+                    original_text = check_run.get("output", {}).get("text", "")
+                    run_details = ""
+                    for line in original_text.split("\n"):
+                        if line.startswith("## Run Details"):
+                            run_details = line
+                        elif run_details and not line.startswith("##"):
+                            run_details += "\n" + line
+                        elif run_details and line.startswith("##"):
+                            break
+                    
+                    if run_details:
+                        output["text"] = f"{run_details}\n\n{output['text']}"
         
         data = {
             "status": status,
@@ -221,6 +227,7 @@ Starting infrastructure operation. This check will be updated with results.
         logging.info(f"URL: {url}")
         logging.info(f"Headers: {json.dumps(headers, indent=2)}")
         logging.info(f"Request Body: {json.dumps(data, indent=2)}")
+        
         async with session.patch(url, headers=headers, json=data) as response:
             response_text = await response.text()
             logging.info(f"Response Status: {response.status}")

@@ -413,7 +413,13 @@ async def plan_run(
         
         # Create check run
         try:
-            check_run = await github_client.create_check_run(owner, repo, external_ref, f"PORC Plan - {run_id}")
+            check_run = await github_client.create_check_run(
+                owner=owner,
+                repo=repo,
+                sha=external_ref,
+                name="PORC Plan",
+                run_id=run_id
+            )
         except Exception as e:
             state_service.update_state(
                 run_id,
@@ -444,13 +450,16 @@ async def plan_run(
                 status="completed",
                 conclusion="success",
                 output={
-                    "title": f"PORC Plan - {run_id}",
-                    "summary": "Terraform plan completed successfully. View the plan details in Terraform Cloud.",
-                    "text": f"""```
-Plan URL: {plan_url}
+                    "title": "Plan Completed",
+                    "summary": "Terraform plan completed successfully.",
+                    "text": f"""## Run Details
+**Run ID**: `{run_id}`
+**Plan ID**: `{plan_id}`
 
-The plan has been created in Terraform Cloud. Click the URL above to view the detailed plan output.
-```"""
+## Plan Results
+The plan has been created in Terraform Cloud. Click the URL below to view the detailed plan output.
+
+Plan URL: {plan_url}"""
                 }
             )
             
@@ -617,12 +626,13 @@ async def apply_run(
         external_ref = record["external_reference"]
         owner, repo = source_repo.split('/')
         
-        # Create GitHub check run
+        # Create GitHub check run for apply
         check_run = await github_client.create_check_run(
             owner=owner,
             repo=repo,
             sha=external_ref,
-            name="PORC Terraform Apply"
+            name="PORC Apply",
+            run_id=run_id
         )
         check_run_id = check_run["id"]
         
@@ -685,12 +695,19 @@ async def apply_run(
             # Get the apply output
             apply_output = tfe.get_apply_output(tfe_run_id)
             
-            # Update GitHub check run
+            # Update GitHub check run for apply
             conclusion = "success" if status == "applied" else "failure"
             output = {
-                "title": "Terraform Apply",
-                "summary": f"Apply status: {status}",
-                "text": apply_output[:TRUNCATE_OUTPUT]
+                "title": "Apply Complete",
+                "summary": f"Terraform apply {conclusion}.",
+                "text": f"""## Run Details
+**Run ID**: `{run_id}`
+**Status**: {status}
+
+## Apply Output
+```
+{apply_output[:TRUNCATE_OUTPUT]}
+```"""
             }
             await github_client.update_check_run(
                 owner=owner,
