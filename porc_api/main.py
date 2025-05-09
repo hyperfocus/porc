@@ -358,18 +358,21 @@ The plan has been created in Terraform Cloud. Click the URL above to view the de
                 "summary": "Terraform plan failed due to a Terraform Cloud error. See details below.",
                 "text": f"""```
 Error connecting to Terraform Cloud:
-- Status: {getattr(e, 'status_code', 'Unknown')}
-- Message: {str(e)}
-- Type: {e.__class__.__name__}
+- Organization: {get_tfe_org()}
+- Workspace: {workspace_name}
+- API Endpoint: {get_tfe_api()}
+- Status Code: {getattr(e, 'status_code', 'Unknown')}
+- Error Type: {e.__class__.__name__}
 
-Error Description:
-{getattr(e, 'description', 'No additional description available')}
+Full Error Message:
+{str(e)}
 
 Troubleshooting Steps:
 1. Check that Terraform Cloud credentials are properly configured
-2. Verify the workspace '{workspace_name}' exists and is accessible
+2. Verify the workspace '{workspace_name}' exists in organization '{get_tfe_org()}'
 3. Ensure the PORC service has the correct permissions
 4. Check TFE token validity and permissions
+5. Verify the organization name is correct in the configuration
 
 For more details, check the logs or contact your administrator.
 ```"""
