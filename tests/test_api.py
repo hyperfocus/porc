@@ -23,6 +23,11 @@ async def request(client, method, url, headers=None, json=None):
 
 @pytest.mark.asyncio
 async def test_full_porc_workflow(async_client, headers, pr_sha, repo_full):
+    if not pr_sha:
+        pytest.fail("pr_sha is required - must provide --pr-sha argument")
+    
+    logging.info(f"Running test with SHA: {pr_sha}")
+    
     # Step 1: Submit Blueprint
     blueprint = {
         "kind": "postgres-db",
@@ -31,7 +36,7 @@ async def test_full_porc_workflow(async_client, headers, pr_sha, repo_full):
             "db_user": "admin"
         },
         "schema_version": "1.0.0",
-        "external_reference": pr_sha or "pr-123",
+        "external_reference": pr_sha,
         "source_repo": repo_full or "myorg/myrepo"
     }
     resp = await request(async_client, "post", "/blueprint", headers=headers, json=blueprint)
@@ -72,12 +77,17 @@ async def test_full_porc_workflow(async_client, headers, pr_sha, repo_full):
     assert resp.status_code in (200, 404)
 
 @pytest.mark.asyncio
-async def test_full_lifecycle_all_routes(async_client, headers, repo_full):
+async def test_full_lifecycle_all_routes(async_client, headers, repo_full, pr_sha):
+    if not pr_sha:
+        pytest.fail("pr_sha is required - must provide --pr-sha argument")
+    
+    logging.info(f"Running test with SHA: {pr_sha}")
+    
     blueprint = {
         "kind": "postgres-db",
         "variables": {},
         "schema_version": "1.0.0",
-        "external_reference": "test-pr-123",
+        "external_reference": pr_sha,
         "source_repo": repo_full or "test-org/test-repo"
     }
 
