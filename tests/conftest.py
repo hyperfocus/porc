@@ -1,7 +1,5 @@
 import pytest
 import os
-from fastapi.testclient import TestClient
-from porc_api.main import app
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -107,9 +105,4 @@ def repo(request):
 
 @pytest.fixture
 def repo_full(request):
-    return request.config.getoption("--repo-full")
-
-@pytest.fixture
-def client():
-    """Create a test client."""
-    return TestClient(app) 
+    return request.config.getoption("--repo-full") 

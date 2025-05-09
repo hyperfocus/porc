@@ -233,7 +233,4 @@ Starting infrastructure operation. This check will be updated with results.
 
 def get_github_client() -> GitHubClient:
     """Get a GitHub client instance."""
-    return GitHubClient()
-
-# Initialize the GitHub client
-github_client = get_github_client() 
+    return GitHubClient() 
