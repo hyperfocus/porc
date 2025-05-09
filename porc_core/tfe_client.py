@@ -38,6 +38,12 @@ class TFEClient:
         if not self.api_url:
             raise ValueError("TFE_API environment variable is not set")
             
+        # Normalize API URL - remove trailing /api/v2 if present since we add it in the endpoint methods
+        if self.api_url.endswith('/api/v2'):
+            self.api_url = self.api_url[:-8]  # Remove /api/v2
+        elif self.api_url.endswith('/api/v2/'):
+            self.api_url = self.api_url[:-9]  # Remove /api/v2/
+            
         self.org = org or get_tfe_org()
         if not self.org:
             raise ValueError("TFE_ORG environment variable is not set")
@@ -91,6 +97,10 @@ class TFEClient:
         # Ensure URL has https scheme if it's a relative path
         if not url.startswith('http'):
             url = f"{self.api_url}/{url.lstrip('/')}"
+            
+        logging.info(f"Making request: {method} {url}")
+        if kwargs.get('json'):
+            logging.debug(f"Request body: {json.dumps(kwargs['json'], indent=2)}")
 
         self._log_request_details(method, url, self.headers, **kwargs)
 
