@@ -6,7 +6,6 @@ import logging
 import aiohttp
 import jwt
 import time
-import json
 from typing import Dict, Any, Optional
 from datetime import datetime
 from porc_common.config import (
@@ -95,8 +94,6 @@ class GitHubClient:
     async def create_check_run(self, owner: str, repo: str, sha: str, name: str) -> Dict[str, Any]:
         """Create a new check run."""
         url = f"https://api.github.com/repos/{owner}/{repo}/check-runs"
-        # Extract run_id from name (format: "PORC Plan - {run_id}" or "PORC Terraform Apply")
-        run_id = name.split(" - ")[-1] if " - " in name else "unknown"
         data = {
             "name": name,
             "head_sha": sha,
@@ -104,25 +101,22 @@ class GitHubClient:
             "started_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
             "output": {
                 "title": name,
-                "summary": f"Starting check run for run_id: {run_id}"
+                "summary": "Starting check run..."
             }
         }
         session = await self.session
         headers = await self.headers
-        logging.info("=== GitHub Check Run API Request ===")
-        logging.info(f"Method: POST")
-        logging.info(f"URL: {url}")
-        logging.info(f"Headers: {json.dumps(headers, indent=2)}")
-        logging.info(f"Request Body: {json.dumps(data, indent=2)}")
+        logging.info(f"Creating GitHub check run for {owner}/{repo} at {sha}")
+        logging.info(f"Request URL: {url}")
+        logging.info(f"Request headers: {headers}")
+        logging.info(f"Request data: {data}")
         async with session.post(url, headers=headers, json=data) as response:
-            response_text = await response.text()
-            logging.info(f"Response Status: {response.status}")
-            logging.info(f"Response Body: {response_text}")
             if response.status != 201:
-                logging.error(f"Failed to create check run: {response_text}")
-                raise Exception(f"Failed to create check run: {response_text}")
-            result = json.loads(response_text)
-            logging.info(f"Successfully created check run: {json.dumps(result, indent=2)}")
+                error_text = await response.text()
+                logging.error(f"Failed to create check run: {error_text}")
+                raise Exception(f"Failed to create check run: {error_text}")
+            result = await response.json()
+            logging.info(f"Successfully created check run: {result}")
             return result
     
     async def update_check_run(self, owner: str, repo: str, check_run_id: int, 
@@ -130,18 +124,6 @@ class GitHubClient:
                         output: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Update an existing check run."""
         url = f"https://api.github.com/repos/{owner}/{repo}/check-runs/{check_run_id}"
-        
-        # Extract run_id from output title if available
-        run_id = "unknown"
-        if output and "title" in output:
-            title_parts = output["title"].split(" - ")
-            if len(title_parts) > 1:
-                run_id = title_parts[-1]
-        
-        # Add run_id to summary if not already present
-        if output and "summary" in output and "run_id" not in output["summary"].lower():
-            output["summary"] = f"Run ID: {run_id}\n{output['summary']}"
-        
         data = {
             "status": status,
             "conclusion": conclusion,
