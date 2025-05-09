@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    types: [closed]
+    branches:
+      - main
 
 env:
   ACR_NAME: porcupine
@@ -13,11 +17,15 @@ env:
 
 jobs:
   deploy:
+    # Only run this job if the PR was merged (not just closed) or if it was a direct push to main
+    if: github.event.pull_request.merged == true || github.event_name == 'push'
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history for tags and versioning
 
       - name: Set Version Tag from Git SHA
         id: vars
