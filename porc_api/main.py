@@ -226,6 +226,9 @@ async def build_from_blueprint(
             # Store the deployment bundle
             bundle_key = storage_service.store_deployment_bundle(run_id, files)
             
+            # Generate bundle URL
+            bundle_url = storage_service.get_bundle_url(bundle_key)
+            
             # Update record with bundle key
             record["bundle_key"] = bundle_key
             record["status"] = "built"
@@ -238,11 +241,14 @@ async def build_from_blueprint(
             state_service.update_state(
                 run_id, 
                 RunState.BUILT,
-                metadata={"bundle_key": bundle_key}
+                metadata={
+                    "bundle_key": bundle_key,
+                    "bundle_url": bundle_url
+                }
             )
             
             logging.info(f"Blueprint built: {run_id}")
-            return {"run_id": run_id, "status": "built", "bundle_key": bundle_key}
+            return {"run_id": run_id, "status": "built", "bundle_key": bundle_key, "bundle_url": bundle_url}
             
         except ValueError as e:
             # Update state to indicate build failure
@@ -315,9 +321,22 @@ async def plan_run(
             workspace_id = ensure_workspace_exists(tfe, workspace_name)
             
             # Get the bundle URL from state
-            bundle_url = state.get("bundle_url")
+            bundle_url = state.get("metadata", {}).get("bundle_url")
             if not bundle_url:
-                return JSONResponse(status_code=400, content={"error": "Bundle URL not found in state"})
+                # If bundle URL not in state, try to generate it from bundle key
+                bundle_key = state.get("metadata", {}).get("bundle_key")
+                if not bundle_key:
+                    return JSONResponse(status_code=400, content={"error": "Bundle key not found in state"})
+                try:
+                    bundle_url = storage_service.get_bundle_url(bundle_key)
+                    # Update state with bundle URL
+                    state_service.update_state(
+                        run_id,
+                        state.get("state", RunState.BUILT.value),
+                        metadata={**state.get("metadata", {}), "bundle_url": bundle_url}
+                    )
+                except ValueError as e:
+                    return JSONResponse(status_code=400, content={"error": f"Failed to generate bundle URL: {str(e)}"})
             
             # Create plan
             plan_id = tfe.create_plan(workspace_id, bundle_url)
@@ -367,6 +386,9 @@ Error connecting to Terraform Cloud:
 Full Error Message:
 {str(e)}
 
+Raw API Response:
+{getattr(e, 'text', 'No response text available')}
+
 Troubleshooting Steps:
 1. Check that Terraform Cloud credentials are properly configured
 2. Verify the workspace '{workspace_name}' exists in organization '{get_tfe_org()}'
@@ -377,12 +399,16 @@ Troubleshooting Steps:
 For more details, check the logs or contact your administrator.
 ```"""
             }
-            await github_client.update_check_run(
-                owner, repo, check_run["id"],
-                status="completed",
-                conclusion="failure",
-                output=error_details
-            )
+            try:
+                await github_client.update_check_run(
+                    owner, repo, check_run["id"],
+                    status="completed",
+                    conclusion="failure",
+                    output=error_details
+                )
+            finally:
+                # Ensure client session is closed
+                await github_client.close()
             raise
         except Exception as e:
             # Update check run with error
@@ -390,8 +416,9 @@ For more details, check the logs or contact your administrator.
                 "title": f"PORC Plan - {run_id} — Error",
                 "summary": "Terraform plan failed due to an unexpected error. See details below.",
                 "text": f"""```
-Error Type: {e.__class__.__name__}
-Message: {str(e)}
+Error Details:
+- Type: {e.__class__.__name__}
+- Message: {str(e)}
 
 Stack Trace:
 {traceback.format_exc()}
@@ -399,16 +426,23 @@ Stack Trace:
 For more details, check the logs or contact your administrator.
 ```"""
             }
-            await github_client.update_check_run(
-                owner, repo, check_run["id"],
-                status="completed",
-                conclusion="failure",
-                output=error_details
-            )
+            try:
+                await github_client.update_check_run(
+                    owner, repo, check_run["id"],
+                    status="completed",
+                    conclusion="failure",
+                    output=error_details
+                )
+            finally:
+                # Ensure client session is closed
+                await github_client.close()
             raise
             
     except Exception as e:
         logging.error(f"Error running plan: {str(e)}", exc_info=True)
+        # Ensure client session is closed in case of early exit
+        if github_client:
+            await github_client.close()
         return JSONResponse(
             status_code=500,
             content={"error": "Failed to run plan", "details": str(e)}

@@ -7,8 +7,8 @@ import json
 import tempfile
 import zipfile
 from typing import Dict, Any, Optional, BinaryIO
-from datetime import datetime
-from azure.storage.blob import BlobServiceClient, ContainerClient
+from datetime import datetime, timedelta
+from azure.storage.blob import BlobServiceClient, ContainerClient, generate_blob_sas, BlobSasPermissions
 from azure.core.exceptions import ResourceNotFoundError
 
 class StorageService:
@@ -86,6 +86,27 @@ class StorageService:
             return json.loads(blob_client.download_blob().readall().decode('utf-8'))
         except ResourceNotFoundError:
             raise ValueError(f"QUILL template not found: {template_key}")
+    
+    def get_bundle_url(self, bundle_key: str, expiry_hours: int = 1) -> str:
+        """Generate a temporary URL for accessing a bundle."""
+        try:
+            # Get blob client for the bundle
+            blob_client = self.blob_service.get_blob_client(container=self.bucket_name, blob=bundle_key)
+            
+            # Generate SAS token with read permission
+            sas_token = generate_blob_sas(
+                account_name=self.blob_service.account_name,
+                container_name=self.bucket_name,
+                blob_name=bundle_key,
+                account_key=self.blob_service.credential.account_key,
+                permission=BlobSasPermissions(read=True),
+                expiry=datetime.utcnow() + timedelta(hours=expiry_hours)
+            )
+            
+            # Return the full URL with SAS token
+            return f"{blob_client.url}?{sas_token}"
+        except Exception as e:
+            raise ValueError(f"Failed to generate bundle URL: {str(e)}")
 
 def get_storage_service() -> StorageService:
     """Get a storage service instance."""
