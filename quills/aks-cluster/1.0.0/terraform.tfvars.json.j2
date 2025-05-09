@@ -1,0 +1,21 @@
+{
+  "resource_group_name": "{{ resource_group_name }}",
+  "location": "{{ location }}",
+  "vnet_name": "{{ vnet_name }}",
+  "vnet_address_space": "10.0.0.0/16",
+  "subnet_prefix": "10.0.1.0/24",
+  "cluster_name": "{{ cluster_name }}",
+  "kubernetes_version": "{{ kubernetes_version }}",
+  "node_count": {{ node_count }},
+  "node_vm_size": "{{ node_vm_size }}",
+  "enable_auto_scaling": {{ enable_auto_scaling }},
+  "min_count": {{ min_count }},
+  "max_count": {{ max_count }},
+  "network_plugin": "{{ network_plugin }}",
+  "network_policy": "{{ network_policy }}",
+  "dns_service_ip": "{{ dns_service_ip }}",
+  "service_cidr": "{{ service_cidr }}",
+  "pod_cidr": "{{ pod_cidr }}",
+  "environment": "{{ environment }}",
+  "app_name": "{{ app_name }}"
+} 
