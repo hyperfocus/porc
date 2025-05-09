@@ -90,17 +90,22 @@ def get_workspace_name() -> str:
 def ensure_workspace_exists(tfe: TFEClient, workspace_name: str) -> str:
     """Ensure workspace exists, create if it doesn't."""
     try:
+        logging.info(f"Checking if workspace {workspace_name} exists")
         workspace_id = tfe.get_workspace_id(workspace_name)
+        logging.info(f"Found existing workspace {workspace_name} with ID {workspace_id}")
         return workspace_id
     except TFEServiceError as e:
         if "not found" in str(e).lower():
             logging.info(f"Creating workspace: {workspace_name}")
-            return tfe.create_workspace(
+            workspace_id = tfe.create_workspace(
                 name=workspace_name,
                 org=get_tfe_org(),
                 auto_apply=True,  # Auto-apply for dev environment
                 execution_mode="remote"
             )
+            logging.info(f"Created new workspace {workspace_name} with ID {workspace_id}")
+            return workspace_id
+        logging.error(f"Failed to get/create workspace {workspace_name}: {str(e)}")
         raise
 
 # MongoDB setup
@@ -438,13 +443,18 @@ async def plan_run(
             # Run terraform plan
             tfe = TFEClient()
             workspace_name = get_workspace_name()
+            logging.info(f"Getting/creating workspace: {workspace_name}")
             workspace_id = ensure_workspace_exists(tfe, workspace_name)
+            logging.info(f"Using workspace {workspace_name} with ID: {workspace_id}")
             
             # Create plan
+            logging.info(f"Creating plan in workspace {workspace_id} with bundle URL: {bundle_url}")
             plan_id = tfe.create_plan(workspace_id, bundle_url)
+            logging.info(f"Created plan {plan_id} in workspace {workspace_id}")
             
             # Update check run with plan URL
             plan_url = f"https://app.terraform.io/app/{get_tfe_org()}/workspaces/{workspace_name}/runs/{plan_id}"
+            logging.info(f"Plan URL: {plan_url}")
             await github_client.update_check_run(
                 owner, repo, check_run["id"],
                 status="completed",

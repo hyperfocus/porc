@@ -137,7 +137,7 @@ class TFEClient:
 
     def get_workspace_id(self, name):
         """Get the workspace ID for a given workspace name."""
-        url = f"{self.api_url}/organizations/{self.org}/workspaces/{name}"
+        url = f"{self.api_url}/api/v2/organizations/{self.org}/workspaces/{name}"
         r = self._request_with_retries("GET", url)
         if r.status_code != 200:
             logging.error(f"Failed to get workspace ID for {name}: {r.text}")
@@ -150,7 +150,7 @@ class TFEClient:
 
     def create_config_version(self, workspace_id):
         """Create a new configuration version for a workspace."""
-        url = f"{self.api_url}/workspaces/{workspace_id}/configuration-versions"
+        url = f"{self.api_url}/api/v2/workspaces/{workspace_id}/configuration-versions"
         payload = {
             "data": {
                 "type": "configuration-versions",
@@ -177,7 +177,7 @@ class TFEClient:
 
     def create_workspace(self, name, org, auto_apply=False, execution_mode="remote"):
         """Create a new workspace in the organization."""
-        url = f"{self.api_url}/organizations/{org}/workspaces"
+        url = f"{self.api_url}/api/v2/organizations/{org}/workspaces"
         payload = {
             "data": {
                 "type": "workspaces",
@@ -200,7 +200,7 @@ class TFEClient:
 
     def create_run(self, workspace_id, config_version_id):
         """Create a new run in the workspace."""
-        url = f"{self.api_url}/runs"
+        url = f"{self.api_url}/api/v2/runs"
         payload = {
             "data": {
                 "type": "runs",
@@ -235,26 +235,46 @@ class TFEClient:
 
     def create_plan(self, workspace_id, bundle_url):
         """Create a new plan using a configuration bundle URL."""
-        # First create a new configuration version
-        config_version_id, upload_url = self.create_config_version(workspace_id)
+        logging.info(f"Creating plan for workspace {workspace_id} with bundle {bundle_url}")
         
-        # Download the bundle and upload it to TFE
-        r = requests.get(bundle_url, timeout=self.timeout)
-        if r.status_code != 200:
-            raise TFEServiceError(r.status_code, f"Failed to download bundle from {bundle_url}")
-        
-        # Upload the configuration
-        headers = {"Content-Type": "application/octet-stream"}
-        r = requests.put(upload_url, data=r.content, headers=headers, timeout=self.timeout)
-        if r.status_code != 200:
-            raise TFEServiceError(r.status_code, f"Failed to upload configuration to {upload_url}")
-        
-        # Create and return the run ID
-        return self.create_run(workspace_id, config_version_id)
+        try:
+            # First create a new configuration version
+            logging.info(f"Creating configuration version for workspace {workspace_id}")
+            config_version_id, upload_url = self.create_config_version(workspace_id)
+            logging.info(f"Created configuration version {config_version_id} with upload URL {upload_url}")
+            
+            # Download the bundle and upload it to TFE
+            logging.info(f"Downloading bundle from {bundle_url}")
+            r = requests.get(bundle_url, timeout=self.timeout)
+            if r.status_code != 200:
+                error_msg = f"Failed to download bundle from {bundle_url} (status: {r.status_code})"
+                logging.error(error_msg)
+                raise TFEServiceError(r.status_code, error_msg)
+            logging.info(f"Successfully downloaded bundle ({len(r.content)} bytes)")
+            
+            # Upload the configuration
+            logging.info(f"Uploading configuration to {upload_url}")
+            headers = {"Content-Type": "application/octet-stream"}
+            r = requests.put(upload_url, data=r.content, headers=headers, timeout=self.timeout)
+            if r.status_code != 200:
+                error_msg = f"Failed to upload configuration to {upload_url} (status: {r.status_code})"
+                logging.error(error_msg)
+                raise TFEServiceError(r.status_code, error_msg)
+            logging.info("Successfully uploaded configuration")
+            
+            # Create and return the run ID
+            logging.info(f"Creating run for workspace {workspace_id} with config version {config_version_id}")
+            run_id = self.create_run(workspace_id, config_version_id)
+            logging.info(f"Created run {run_id} for workspace {workspace_id}")
+            return run_id
+            
+        except Exception as e:
+            logging.error(f"Failed to create plan: {str(e)}")
+            raise
 
     def wait_for_run(self, run_id):
         """Wait for a run to complete and return its final status."""
-        url = f"{self.api_url}/runs/{run_id}"
+        url = f"{self.api_url}/api/v2/runs/{run_id}"
         while True:
             r = self._request_with_retries("GET", url)
             if r.status_code != 200:
@@ -271,7 +291,7 @@ class TFEClient:
 
     def get_plan_output(self, run_id):
         """Get the plan output for a run."""
-        url = f"{self.api_url}/runs/{run_id}/plan"
+        url = f"{self.api_url}/api/v2/runs/{run_id}/plan"
         r = self._request_with_retries("GET", url)
         if r.status_code != 200:
             logging.error(f"Failed to get plan output: {r.text}")
@@ -289,7 +309,7 @@ class TFEClient:
 
     def get_apply_output(self, run_id):
         """Get the apply output for a run."""
-        url = f"{self.api_url}/runs/{run_id}/apply"
+        url = f"{self.api_url}/api/v2/runs/{run_id}/apply"
         r = self._request_with_retries("GET", url)
         if r.status_code != 200:
             logging.error(f"Failed to get apply output: {r.text}")
@@ -307,7 +327,7 @@ class TFEClient:
 
     def apply_run(self, run_id):
         """Apply a run that has been planned."""
-        url = f"{self.api_url}/runs/{run_id}/actions/apply"
+        url = f"{self.api_url}/api/v2/runs/{run_id}/actions/apply"
         r = self._request_with_retries("POST", url)
         if r.status_code != 202:
             logging.error(f"Failed to apply run: {r.text}")
