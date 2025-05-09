@@ -44,6 +44,7 @@ jobs:
         run: |
           git add porc-helm/Chart.yaml
           git commit -m "ci: bump chart version to ${CHART_VERSION}" || echo "No changes to commit"
+          git pull --rebase origin main
           git push
 
       - name: Create Git Tag
