@@ -7,6 +7,7 @@ import aiohttp
 import jwt
 import time
 import json
+import re
 from typing import Dict, Any, Optional
 from datetime import datetime
 from porc_common.config import (
@@ -17,6 +18,9 @@ from porc_common.config import (
 )
 
 class GitHubClient:
+    # SHA validation pattern - 40 character hex string
+    SHA_PATTERN = re.compile(r'^[0-9a-f]{40}$')
+    
     def __init__(self, token: Optional[str] = None):
         """Initialize GitHub client with token or GitHub App credentials."""
         self._token = token
@@ -91,9 +95,30 @@ class GitHubClient:
                 }
                 logging.info("Using GitHub PAT authentication headers")
         return self._headers
-    
+
+    def _validate_sha(self, sha: str) -> bool:
+        """Validate that a string is a valid Git SHA."""
+        return bool(self.SHA_PATTERN.match(sha.lower()))
+
+    def _get_details_url(self, owner: str, repo: str, sha: str, run_id: str) -> str:
+        """Generate an appropriate details URL for the check run."""
+        # Point to the commit by default
+        base_url = f"https://github.com/{owner}/{repo}/commit/{sha}"
+        
+        # If we have a run ID that looks like a PR number, add PR context
+        pr_match = re.match(r'^pr-(\d+)$', run_id)
+        if pr_match:
+            pr_number = pr_match.group(1)
+            return f"https://github.com/{owner}/{repo}/pull/{pr_number}/checks"
+        
+        return base_url
+
     async def create_check_run(self, owner: str, repo: str, sha: str, name: str) -> Dict[str, Any]:
         """Create a new check run."""
+        # Validate SHA format
+        if not self._validate_sha(sha):
+            raise ValueError(f"Invalid SHA format: {sha}")
+
         url = f"https://api.github.com/repos/{owner}/{repo}/check-runs"
         # Extract run_id from name (format: "PORC Plan - {run_id}" or "PORC Terraform Apply")
         run_id = name.split(" - ")[-1] if " - " in name else "unknown"
@@ -117,7 +142,7 @@ Starting infrastructure operation. This check will be updated with results.
                 "title": f"PORC Run: {run_id}",
                 "summary": summary
             },
-            "details_url": f"https://github.com/{owner}/{repo}/pull/{sha}"  # Link to the PR
+            "details_url": self._get_details_url(owner, repo, sha, run_id)
         }
         session = await self.session
         headers = await self.headers
@@ -168,15 +193,23 @@ Starting infrastructure operation. This check will be updated with results.
             if "title" in output and run_id not in output["title"]:
                 output["title"] = f"{output['title']} (Run: {run_id})"
         
+        # Get the SHA from the existing check run to use in details_url
+        session = await self.session
+        headers = await self.headers
+        async with session.get(url, headers=headers) as response:
+            if response.status == 200:
+                check_run = await response.json()
+                sha = check_run.get("head_sha", "")
+            else:
+                sha = ""  # Fallback if we can't get the SHA
+        
         data = {
             "status": status,
             "conclusion": conclusion,
             "output": output,
-            "details_url": f"https://github.com/{owner}/{repo}/pull/{run_id}"  # Maintain PR link
+            "details_url": self._get_details_url(owner, repo, sha, run_id) if sha else None
         }
         
-        session = await self.session
-        headers = await self.headers
         logging.info("=== GitHub Check Run Update API Request ===")
         logging.info(f"Method: PATCH")
         logging.info(f"URL: {url}")
