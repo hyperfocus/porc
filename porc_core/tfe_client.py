@@ -6,7 +6,8 @@ import time
 import logging
 import sys
 import json
-from porc_common.config import TFE_TOKEN, TFE_API, TFE_ORG
+import base64
+from porc_common.config import get_tfe_token, get_tfe_api, get_tfe_org
 from porc_common.errors import TFEServiceError
 
 class JsonFormatter(logging.Formatter):
@@ -27,12 +28,23 @@ logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
 
 class TFEClient:
     """Client for interacting with the Terraform Enterprise (TFE) API."""
-    def __init__(self, token=TFE_TOKEN, api_url=TFE_API, org=TFE_ORG):
+    def __init__(self, token=None, api_url=None, org=None):
         """Initialize the TFEClient with authentication and API details."""
-        self.token = token
+        token = token or get_tfe_token()
+        # Decode base64 token if it looks like base64
+        try:
+            if '.' in token and len(token) % 4 == 0:
+                decoded_token = base64.b64decode(token).decode('utf-8')
+                self.token = decoded_token
+            else:
+                self.token = token
+        except Exception as e:
+            logging.warning(f"Failed to decode token as base64, using as-is: {e}")
+            self.token = token
+            
         # Ensure API URL has https scheme
-        self.api_url = api_url if api_url.startswith('http') else f'https://{api_url}'
-        self.org = org
+        self.api_url = api_url or get_tfe_api()
+        self.org = org or get_tfe_org()
         self.headers = {
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/vnd.api+json"

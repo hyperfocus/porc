@@ -1,0 +1,13 @@
+{
+  "kind": "gke-cluster",
+  "schema_version": "1.0.0",
+  "owner": "devops@td.com",
+  "approval_required": true,
+  "change_record": "CHG123456",
+  "description": "Create a new GKE cluster for PORC migration",
+  "inputs": {
+    "cluster_name": "porc-new-cluster",
+    "region": "us-central1",
+    "node_count": 3
+  }
+} 
