@@ -6,7 +6,7 @@ import time
 import logging
 import sys
 import json
-import base64
+from typing import Dict, Any, Optional
 from porc_common.config import get_tfe_token, get_tfe_api, get_tfe_org
 from porc_common.errors import TFEServiceError
 
@@ -30,21 +30,24 @@ class TFEClient:
     """Client for interacting with the Terraform Enterprise (TFE) API."""
     def __init__(self, token=None, api_url=None, org=None):
         """Initialize the TFEClient with authentication and API details."""
-        token = token or get_tfe_token()
-        # Decode base64 token if it looks like base64
-        try:
-            if '.' in token and len(token) % 4 == 0:
-                decoded_token = base64.b64decode(token).decode('utf-8')
-                self.token = decoded_token
-            else:
-                self.token = token
-        except Exception as e:
-            logging.warning(f"Failed to decode token as base64, using as-is: {e}")
-            self.token = token
+        self.token = token or get_tfe_token()
+        if not self.token:
+            raise ValueError("TFE_TOKEN environment variable is not set")
             
-        # Ensure API URL has https scheme
         self.api_url = api_url or get_tfe_api()
+        if not self.api_url:
+            raise ValueError("TFE_API environment variable is not set")
+            
         self.org = org or get_tfe_org()
+        if not self.org:
+            raise ValueError("TFE_ORG environment variable is not set")
+            
+        logging.info(f"Initializing TFE client for org: {self.org}, API: {self.api_url}")
+        
+        # Validate token format
+        if not self.token.startswith(('at-', 'tk-')):
+            logging.warning("TFE token does not start with expected prefix (at- or tk-)")
+            
         self.headers = {
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/vnd.api+json"
@@ -53,18 +56,80 @@ class TFEClient:
         self.max_retries = 3
         self.retry_delay = 2
 
-    def _request_with_retries(self, method, url, **kwargs):
-        """Helper to perform HTTP requests with retries and timeout."""
+    def _log_request_details(self, method: str, url: str, headers: Dict[str, str], **kwargs) -> None:
+        """Log request details with sensitive information redacted."""
+        # Create a copy of headers and redact sensitive information
+        safe_headers = headers.copy()
+        if 'Authorization' in safe_headers:
+            auth_parts = safe_headers['Authorization'].split()
+            if len(auth_parts) == 2:
+                token = auth_parts[1]
+                safe_headers['Authorization'] = f"{auth_parts[0]} {token[:4]}...{token[-4:]}"
+            else:
+                safe_headers['Authorization'] = '[REDACTED]'
+
+        logging.info(f"Making request: {method} {url}")
+        logging.debug(f"Headers: {json.dumps(safe_headers, indent=2)}")
+        if 'json' in kwargs:
+            logging.debug(f"Request body: {json.dumps(kwargs['json'], indent=2)}")
+
+    def _log_response_details(self, response: requests.Response) -> None:
+        """Log response details."""
+        logging.info(f"Response status: {response.status_code}")
+        logging.debug(f"Response headers: {json.dumps(dict(response.headers), indent=2)}")
+        try:
+            body = response.json()
+            if response.status_code >= 400:
+                logging.error(f"Error response body: {json.dumps(body, indent=2)}")
+            else:
+                logging.debug(f"Response body: {json.dumps(body, indent=2)}")
+        except ValueError:
+            logging.debug(f"Response text: {response.text}")
+
+    def _request_with_retries(self, method: str, url: str, **kwargs) -> requests.Response:
+        """Helper to perform HTTP requests with retries, timeout, and logging."""
         # Ensure URL has https scheme if it's a relative path
         if not url.startswith('http'):
             url = f"{self.api_url}/{url.lstrip('/')}"
-            
+
+        self._log_request_details(method, url, self.headers, **kwargs)
+
         for attempt in range(self.max_retries):
             try:
                 response = requests.request(method, url, headers=self.headers, timeout=self.timeout, **kwargs)
+                self._log_response_details(response)
+
+                if response.status_code == 401:
+                    raise TFEServiceError(response.status_code, 
+                        "Authentication failed. Please check your TFE_TOKEN is valid and has correct permissions.")
+                elif response.status_code == 403:
+                    raise TFEServiceError(response.status_code,
+                        "Authorization failed. Your token does not have permission to perform this action.")
+                elif response.status_code == 404:
+                    error_msg = f"Resource not found: {url}"
+                    try:
+                        error_data = response.json()
+                        if 'errors' in error_data:
+                            error_details = json.dumps(error_data['errors'], indent=2)
+                            error_msg += f"\nError details:\n{error_details}"
+                    except ValueError:
+                        error_msg += f"\nResponse text: {response.text}"
+                    raise TFEServiceError(response.status_code, error_msg)
+                elif response.status_code >= 400:
+                    error_msg = f"TFE API Error ({response.status_code}): {url}"
+                    try:
+                        error_data = response.json()
+                        if 'errors' in error_data:
+                            error_details = json.dumps(error_data['errors'], indent=2)
+                            error_msg += f"\nError details:\n{error_details}"
+                    except ValueError:
+                        error_msg += f"\nResponse text: {response.text}"
+                    raise TFEServiceError(response.status_code, error_msg)
+
                 return response
             except requests.RequestException as e:
                 if attempt < self.max_retries - 1:
+                    logging.warning(f"Request attempt {attempt + 1} failed: {str(e)}. Retrying...")
                     time.sleep(self.retry_delay)
                 else:
                     logging.error(f"Request to {url} failed after {self.max_retries} attempts: {e}")
