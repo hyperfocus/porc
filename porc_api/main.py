@@ -347,14 +347,24 @@ async def plan_run(
             
         except Exception as e:
             # Update check run with error
+            error_details = {
+                "title": f"PORC Plan - {run_id} — Error",
+                "summary": f"""## Error Running Terraform Plan
+**Run ID**: `{run_id}`
+**Repository**: {owner}/{repo}
+**Status**: Failed
+**Error Details**:
+```
+{str(e)}
+```
+
+For more details, check the logs or contact your administrator."""
+            }
             await github_client.update_check_run(
                 owner, repo, check_run["id"],
                 status="completed",
                 conclusion="failure",
-                output={
-                    "title": "Error",
-                    "summary": f"Error running terraform plan: {str(e)}"
-                }
+                output=error_details
             )
             raise
             
