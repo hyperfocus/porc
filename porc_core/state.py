@@ -69,11 +69,40 @@ class StateService:
                 None,
                 lambda: self.table_client.get_entity(partition_key=run_id, row_key=run_id)
             )
-            return dict(entity)
+            
+            # Convert entity to dictionary and parse metadata if present
+            state_dict = {
+                "state": entity.get("state", RunState.SUBMITTED.value),
+                "workspace": entity.get("workspace"),
+                "updated_at": entity.get("updated_at"),
+                "metadata": {}
+            }
+            
+            # Parse metadata if present
+            if "metadata" in entity:
+                try:
+                    if isinstance(entity["metadata"], str):
+                        state_dict["metadata"] = json.loads(entity["metadata"])
+                    elif isinstance(entity["metadata"], dict):
+                        state_dict["metadata"] = entity["metadata"]
+                except json.JSONDecodeError:
+                    logging.warning(f"Failed to parse metadata JSON for run {run_id}")
+            
+            return state_dict
+            
         except ResourceNotFoundError:
-            return {}
+            # Return default state for new runs
+            return {
+                "state": RunState.SUBMITTED.value,
+                "metadata": {}
+            }
         except Exception as e:
-            raise ValueError(f"Failed to get state: {str(e)}")
+            logging.error(f"Failed to get state for run {run_id}: {str(e)}")
+            # Return default state on error
+            return {
+                "state": RunState.SUBMITTED.value,
+                "metadata": {}
+            }
     
     def update_state(self, run_id: str, state: RunState, 
                     workspace: Optional[str] = None,

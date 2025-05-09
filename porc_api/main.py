@@ -288,41 +288,73 @@ async def plan_run(
         if not state:
             return JSONResponse(status_code=404, content={"error": "Run not found"})
         
-        # Ensure state is a dictionary
-        if isinstance(state, str):
-            try:
-                state = json.loads(state)
-            except json.JSONDecodeError:
-                return JSONResponse(
-                    status_code=500,
-                    content={"error": "Invalid state format", "details": "State is not a valid JSON object"}
-                )
+        # Verify state transition
+        current_state = state.get("state")
+        if current_state not in [RunState.BUILT.value, RunState.SUBMITTED.value]:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": "Invalid state transition",
+                    "details": f"Cannot plan from state '{current_state}'. Run must be in BUILT or SUBMITTED state."
+                }
+            )
+        
+        # Update state to PLANNING
+        state_service.update_state(run_id, RunState.PLANNING)
         
         # Get the bundle URL from state
         metadata = state.get("metadata", {})
-        if not isinstance(metadata, dict):
-            metadata = {}
-        
         bundle_url = metadata.get("bundle_url")
         if not bundle_url:
             # If bundle URL not in state, try to generate it from bundle key
             bundle_key = metadata.get("bundle_key")
             if not bundle_key:
-                return JSONResponse(status_code=400, content={"error": "Bundle key not found in state"})
+                # This is a server error since the build step should have stored this
+                state_service.update_state(
+                    run_id,
+                    RunState.PLAN_FAILED,
+                    metadata={
+                        "error": "Bundle key not found in state",
+                        "error_type": "missing_bundle"
+                    }
+                )
+                return JSONResponse(
+                    status_code=500,
+                    content={"error": "Internal error: Bundle key not found in state. The build step may have failed."}
+                )
             try:
                 bundle_url = storage_service.get_bundle_url(bundle_key)
                 # Update state with bundle URL
                 state_service.update_state(
                     run_id,
-                    state.get("state", RunState.BUILT.value),
+                    RunState.PLANNING,
                     metadata={**metadata, "bundle_url": bundle_url}
                 )
             except ValueError as e:
-                return JSONResponse(status_code=400, content={"error": f"Failed to generate bundle URL: {str(e)}"})
+                state_service.update_state(
+                    run_id,
+                    RunState.PLAN_FAILED,
+                    metadata={
+                        "error": str(e),
+                        "error_type": "bundle_url_generation_failed"
+                    }
+                )
+                return JSONResponse(
+                    status_code=500,
+                    content={"error": f"Internal error: Failed to generate bundle URL: {str(e)}"}
+                )
         
         # Get the blueprint record
         meta_file = f"{DB_PATH}/{run_id}.json"
         if not os.path.exists(meta_file):
+            state_service.update_state(
+                run_id,
+                RunState.PLAN_FAILED,
+                metadata={
+                    "error": "Blueprint record not found",
+                    "error_type": "missing_blueprint"
+                }
+            )
             return JSONResponse(status_code=404, content={"error": "Run ID not found"})
         
         with open(meta_file) as f:
@@ -331,20 +363,70 @@ async def plan_run(
         # Get source repository from blueprint record
         source_repo = record.get("source_repo")
         if not source_repo:
-            return JSONResponse(status_code=400, content={"error": "Source repository not found in blueprint"})
+            state_service.update_state(
+                run_id,
+                RunState.PLAN_FAILED,
+                metadata={
+                    "error": "Source repository not found in blueprint",
+                    "error_type": "missing_source_repo"
+                }
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"error": "Internal error: Source repository not found in blueprint"}
+            )
         
         # Extract owner and repo from source_repo
-        owner, repo = source_repo.split("/")
+        try:
+            owner, repo = source_repo.split("/")
+        except ValueError:
+            state_service.update_state(
+                run_id,
+                RunState.PLAN_FAILED,
+                metadata={
+                    "error": f"Invalid source repository format: {source_repo}",
+                    "error_type": "invalid_source_repo"
+                }
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"Internal error: Invalid source repository format: {source_repo}"}
+            )
         
         # Get external reference (PR SHA) from blueprint record
         external_ref = record.get("external_reference")
         if not external_ref:
-            return JSONResponse(status_code=400, content={"error": "External reference not found in blueprint"})
+            state_service.update_state(
+                run_id,
+                RunState.PLAN_FAILED,
+                metadata={
+                    "error": "External reference not found in blueprint",
+                    "error_type": "missing_external_ref"
+                }
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"error": "Internal error: External reference not found in blueprint"}
+            )
         
         logging.info(f"Creating check run with SHA from blueprint: {external_ref}")
         
         # Create check run
-        check_run = await github_client.create_check_run(owner, repo, external_ref, f"PORC Plan - {run_id}")
+        try:
+            check_run = await github_client.create_check_run(owner, repo, external_ref, f"PORC Plan - {run_id}")
+        except Exception as e:
+            state_service.update_state(
+                run_id,
+                RunState.PLAN_FAILED,
+                metadata={
+                    "error": str(e),
+                    "error_type": "github_check_creation_failed"
+                }
+            )
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"Failed to create GitHub check run: {str(e)}"}
+            )
         
         try:
             # Run terraform plan
@@ -423,7 +505,22 @@ For more details, check the logs or contact your administrator.
             finally:
                 # Ensure client session is closed
                 await github_client.close()
-            raise
+            
+            # Update state to indicate plan failure
+            state_service.update_state(
+                run_id,
+                RunState.PLAN_FAILED,
+                metadata={
+                    "error": str(e),
+                    "error_type": "terraform_cloud_error"
+                }
+            )
+            
+            return JSONResponse(
+                status_code=500,
+                content={"error": "Terraform Cloud error", "details": str(e)}
+            )
+            
         except Exception as e:
             # Update check run with error
             error_details = {
@@ -450,13 +547,38 @@ For more details, check the logs or contact your administrator.
             finally:
                 # Ensure client session is closed
                 await github_client.close()
-            raise
+            
+            # Update state to indicate plan failure
+            state_service.update_state(
+                run_id,
+                RunState.PLAN_FAILED,
+                metadata={
+                    "error": str(e),
+                    "error_type": "unexpected_error"
+                }
+            )
+            
+            return JSONResponse(
+                status_code=500,
+                content={"error": "Failed to run plan", "details": str(e)}
+            )
             
     except Exception as e:
         logging.error(f"Error running plan: {str(e)}", exc_info=True)
         # Ensure client session is closed in case of early exit
         if github_client:
             await github_client.close()
+        
+        # Update state to indicate plan failure
+        state_service.update_state(
+            run_id,
+            RunState.PLAN_FAILED,
+            metadata={
+                "error": str(e),
+                "error_type": "unexpected_error"
+            }
+        )
+        
         return JSONResponse(
             status_code=500,
             content={"error": "Failed to run plan", "details": str(e)}
