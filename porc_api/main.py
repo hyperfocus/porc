@@ -478,7 +478,7 @@ Plan URL: {plan_url}"""
         except TFEServiceError as e:
             # Update check run with error
             error_details = {
-                "title": f"PORC Plan - {run_id} — Terraform Cloud Error",
+                "title": "PORC Plan — Terraform Cloud Error",
                 "summary": "Terraform plan failed due to a Terraform Cloud error. See details below.",
                 "text": f"""```
 Error connecting to Terraform Cloud:
@@ -533,7 +533,7 @@ For more details, check the logs or contact your administrator.
         except Exception as e:
             # Update check run with error
             error_details = {
-                "title": f"PORC Plan - {run_id} — Error",
+                "title": "PORC Plan — Error",
                 "summary": "Terraform plan failed due to an unexpected error. See details below.",
                 "text": f"""```
 Error Details:
