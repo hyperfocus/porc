@@ -302,6 +302,8 @@ async def plan_run(
         if not external_ref:
             return JSONResponse(status_code=400, content={"error": "External reference not found in blueprint"})
         
+        logging.info(f"Creating check run with SHA from blueprint: {external_ref}")
+        
         # Create check run
         check_run = await github_client.create_check_run(owner, repo, external_ref, f"PORC Plan - {run_id}")
         
