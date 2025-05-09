@@ -1,0 +1,80 @@
+# Azure Provider configuration
+provider "azurerm" {
+  features {}
+}
+
+# Resource Group
+resource "azurerm_resource_group" "rg" {
+  name     = "{{ resource_group_name }}"
+  location = "{{ location }}"
+  tags = {
+    environment = "{{ environment }}"
+    application = "{{ app_name }}"
+  }
+}
+
+# Virtual Network
+resource "azurerm_virtual_network" "vnet" {
+  name                = "{{ vnet_name }}"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  address_space       = ["{{ vnet_address_space }}"]
+}
+
+# Subnet for AKS
+resource "azurerm_subnet" "aks_subnet" {
+  name                 = "aks-subnet"
+  resource_group_name  = azurerm_resource_group.rg.name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefixes     = ["{{ subnet_prefix }}"]
+  service_endpoints    = ["Microsoft.ContainerRegistry", "Microsoft.KeyVault"]
+}
+
+# AKS Cluster
+resource "azurerm_kubernetes_cluster" "aks" {
+  name                = "{{ cluster_name }}"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  dns_prefix          = "{{ cluster_name }}"
+  kubernetes_version  = "{{ kubernetes_version }}"
+
+  default_node_pool {
+    name                = "default"
+    node_count          = {{ node_count }}
+    vm_size             = "{{ node_vm_size }}"
+    enable_auto_scaling = {{ enable_auto_scaling }}
+    min_count           = {{ min_count }}
+    max_count           = {{ max_count }}
+    vnet_subnet_id      = azurerm_subnet.aks_subnet.id
+  }
+
+  network_profile {
+    network_plugin     = "{{ network_plugin }}"
+    network_policy     = "{{ network_policy }}"
+    dns_service_ip     = "{{ dns_service_ip }}"
+    service_cidr       = "{{ service_cidr }}"
+    pod_cidr           = "{{ pod_cidr }}"
+  }
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  oms_agent {
+    log_analytics_workspace_id = azurerm_log_analytics_workspace.workspace.id
+  }
+
+  tags = {
+    environment = "{{ environment }}"
+    application = "{{ app_name }}"
+  }
+}
+
+# Log Analytics Workspace
+resource "azurerm_log_analytics_workspace" "workspace" {
+  name                = "{{ cluster_name }}-logs"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
+} 
