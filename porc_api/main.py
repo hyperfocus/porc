@@ -345,6 +345,35 @@ async def plan_run(
             
             return {"status": "planned", "plan_id": plan_id, "plan_url": plan_url}
             
+        except TFEServiceError as e:
+            # Handle TFE-specific errors with more detail
+            error_details = {
+                "title": f"PORC Plan - {run_id} — Terraform Cloud Error",
+                "summary": f"""## Terraform Cloud Error
+**Run ID**: `{run_id}`
+**Repository**: {owner}/{repo}
+**Status**: Failed
+**Error Details**:
+```
+Error connecting to Terraform Cloud:
+- Status: {getattr(e, 'status_code', 'Unknown')}
+- Message: {str(e)}
+```
+
+### Troubleshooting Steps
+1. Check that Terraform Cloud credentials are properly configured
+2. Verify the workspace '{workspace_name}' exists and is accessible
+3. Ensure the PORC service has the correct permissions
+
+For more details, check the logs or contact your administrator."""
+            }
+            await github_client.update_check_run(
+                owner, repo, check_run["id"],
+                status="completed",
+                conclusion="failure",
+                output=error_details
+            )
+            raise
         except Exception as e:
             # Update check run with error
             error_details = {
