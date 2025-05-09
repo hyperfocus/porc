@@ -1,6 +1,7 @@
 name: Deploy PORC to AKS
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
