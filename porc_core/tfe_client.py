@@ -168,6 +168,25 @@ class TFEClient:
             raise TFEServiceError(r.status_code, f"Malformed response from {url}: {data}")
         return data["data"]["id"]
 
+    def create_plan(self, workspace_id, bundle_url):
+        """Create a new plan using a configuration bundle URL."""
+        # First create a new configuration version
+        config_version_id, upload_url = self.create_config_version(workspace_id)
+        
+        # Download the bundle and upload it to TFE
+        r = requests.get(bundle_url, timeout=self.timeout)
+        if r.status_code != 200:
+            raise TFEServiceError(r.status_code, f"Failed to download bundle from {bundle_url}")
+        
+        # Upload the configuration
+        headers = {"Content-Type": "application/octet-stream"}
+        r = requests.put(upload_url, data=r.content, headers=headers, timeout=self.timeout)
+        if r.status_code != 200:
+            raise TFEServiceError(r.status_code, f"Failed to upload configuration to {upload_url}")
+        
+        # Create and return the run ID
+        return self.create_run(workspace_id, config_version_id)
+
     def wait_for_run(self, run_id):
         """Wait for a run to complete and return its final status."""
         url = f"{self.api_url}/runs/{run_id}"
