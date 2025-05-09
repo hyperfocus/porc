@@ -170,10 +170,14 @@ Starting infrastructure operation. This check will be updated with results.
         
         # Extract run_id and other info from output title if available
         run_id = "unknown"
+        error_message = None
         if output and "title" in output:
             title_parts = output["title"].split(" - ")
             if len(title_parts) > 1:
                 run_id = title_parts[-1].split(" —")[0]  # Handle "PORC Plan - run_id — Error" format
+                # Extract error message if present
+                if " — " in output["title"]:
+                    error_message = output["title"].split(" — ")[-1]
         
         # If there's an existing summary, enhance it with run details
         if output and "summary" in output:
@@ -185,6 +189,7 @@ Starting infrastructure operation. This check will be updated with results.
 **Repository**: {owner}/{repo}
 **Status**: {status}
 **Conclusion**: {conclusion if conclusion else 'In Progress'}
+{f"**Error**: {error_message}" if error_message else ""}
 
 {original_summary}
 """

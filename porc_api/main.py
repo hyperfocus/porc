@@ -22,6 +22,7 @@ from porc_core.state import StateService, RunState, get_state_service
 from porc_core.storage import StorageService, get_storage_service
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+import traceback
 
 # Environment configuration
 class Environment(str, Enum):
@@ -328,8 +329,13 @@ async def plan_run(
                 status="completed",
                 conclusion="success",
                 output={
-                    "title": "Terraform Plan",
-                    "summary": f"Plan created successfully. [View plan]({plan_url})"
+                    "title": f"PORC Plan - {run_id}",
+                    "summary": "Terraform plan completed successfully. View the plan details in Terraform Cloud.",
+                    "text": f"""```
+Plan URL: {plan_url}
+
+The plan has been created in Terraform Cloud. Click the URL above to view the detailed plan output.
+```"""
                 }
             )
             
@@ -346,26 +352,27 @@ async def plan_run(
             return {"status": "planned", "plan_id": plan_id, "plan_url": plan_url}
             
         except TFEServiceError as e:
-            # Handle TFE-specific errors with more detail
+            # Update check run with error
             error_details = {
                 "title": f"PORC Plan - {run_id} — Terraform Cloud Error",
-                "summary": f"""## Terraform Cloud Error
-**Run ID**: `{run_id}`
-**Repository**: {owner}/{repo}
-**Status**: Failed
-**Error Details**:
-```
+                "summary": "Terraform plan failed due to a Terraform Cloud error. See details below.",
+                "text": f"""```
 Error connecting to Terraform Cloud:
 - Status: {getattr(e, 'status_code', 'Unknown')}
 - Message: {str(e)}
-```
+- Type: {e.__class__.__name__}
 
-### Troubleshooting Steps
+Error Description:
+{getattr(e, 'description', 'No additional description available')}
+
+Troubleshooting Steps:
 1. Check that Terraform Cloud credentials are properly configured
 2. Verify the workspace '{workspace_name}' exists and is accessible
 3. Ensure the PORC service has the correct permissions
+4. Check TFE token validity and permissions
 
-For more details, check the logs or contact your administrator."""
+For more details, check the logs or contact your administrator.
+```"""
             }
             await github_client.update_check_run(
                 owner, repo, check_run["id"],
@@ -378,16 +385,16 @@ For more details, check the logs or contact your administrator."""
             # Update check run with error
             error_details = {
                 "title": f"PORC Plan - {run_id} — Error",
-                "summary": f"""## Error Running Terraform Plan
-**Run ID**: `{run_id}`
-**Repository**: {owner}/{repo}
-**Status**: Failed
-**Error Details**:
-```
-{str(e)}
-```
+                "summary": "Terraform plan failed due to an unexpected error. See details below.",
+                "text": f"""```
+Error Type: {e.__class__.__name__}
+Message: {str(e)}
 
-For more details, check the logs or contact your administrator."""
+Stack Trace:
+{traceback.format_exc()}
+
+For more details, check the logs or contact your administrator.
+```"""
             }
             await github_client.update_check_run(
                 owner, repo, check_run["id"],
