@@ -14,7 +14,7 @@ imagePullSecrets:
 
 # Terraform Enterprise configuration
 tfe:
-  api: https://app.terraform.io/api/v2
+  api: https://app.terraform.io
   org: porc_test
   env: dev
   tokenSecretName: tfe-secrets

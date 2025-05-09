@@ -34,18 +34,23 @@ class TFEClient:
         if not self.token:
             raise ValueError("TFE_TOKEN environment variable is not set")
             
-        self.api_url = api_url or get_tfe_api()
-        if not self.api_url:
+        # Get and validate API URL
+        raw_api_url = api_url or get_tfe_api()
+        if not raw_api_url:
             raise ValueError("TFE_API environment variable is not set")
             
-        # Normalize API URL - remove trailing slashes and /api/v2 if present
-        self.api_url = self.api_url.rstrip('/')
+        # Normalize API URL
+        self.api_url = raw_api_url.rstrip('/')
         if self.api_url.endswith('/api/v2'):
             self.api_url = self.api_url[:-8]
             
         # Validate API URL format
         if not self.api_url.startswith(('http://', 'https://')):
             raise ValueError(f"Invalid API URL format: {self.api_url}")
+            
+        # Ensure the domain is correct
+        if not self.api_url == "https://app.terraform.io":
+            logging.warning(f"API URL {self.api_url} differs from default https://app.terraform.io")
             
         logging.info(f"Initializing TFE client with base URL: {self.api_url}")
             
@@ -97,12 +102,21 @@ class TFEClient:
         except ValueError:
             logging.debug(f"Response text: {response.text}")
 
+    def _build_url(self, endpoint: str) -> str:
+        """Build a complete API URL from an endpoint path."""
+        # Remove leading/trailing slashes from endpoint
+        endpoint = endpoint.strip('/')
+        # Ensure we have /api/v2 prefix
+        if not endpoint.startswith('api/v2'):
+            endpoint = f"api/v2/{endpoint}"
+        # Combine with base URL
+        return f"{self.api_url}/{endpoint}"
+
     def _request_with_retries(self, method: str, url: str, **kwargs) -> requests.Response:
         """Helper to perform HTTP requests with retries, timeout, and logging."""
-        # Ensure URL has https scheme if it's a relative path
+        # Build complete URL if relative path provided
         if not url.startswith('http'):
-            # Add /api/v2 prefix and ensure no double slashes
-            url = f"{self.api_url}/api/v2/{url.lstrip('/')}"
+            url = self._build_url(url)
             
         logging.info(f"Making request: {method} {url}")
         if kwargs.get('json'):
@@ -153,34 +167,34 @@ class TFEClient:
 
     def get_workspace_id(self, name):
         """Get the workspace ID for a given workspace name."""
-        url = f"{self.api_url}/api/v2/organizations/{self.org}/workspaces/{name}"
-        r = self._request_with_retries("GET", url)
+        endpoint = f"organizations/{self.org}/workspaces/{name}"
+        r = self._request_with_retries("GET", endpoint)
         if r.status_code != 200:
             logging.error(f"Failed to get workspace ID for {name}: {r.text}")
-            raise TFEServiceError(r.status_code, f"{url}: {r.text}")
+            raise TFEServiceError(r.status_code, f"{endpoint}: {r.text}")
         data = r.json()
         if "data" not in data or "id" not in data["data"]:
-            logging.error(f"Malformed response from {url}: {data}")
-            raise TFEServiceError(r.status_code, f"Malformed response from {url}: {data}")
+            logging.error(f"Malformed response from {endpoint}: {data}")
+            raise TFEServiceError(r.status_code, f"Malformed response from {endpoint}: {data}")
         return data["data"]["id"]
 
     def create_config_version(self, workspace_id):
         """Create a new configuration version for a workspace."""
-        url = f"{self.api_url}/api/v2/workspaces/{workspace_id}/configuration-versions"
+        endpoint = f"workspaces/{workspace_id}/configuration-versions"
         payload = {
             "data": {
                 "type": "configuration-versions",
                 "attributes": {"auto-queue-runs": False}
             }
         }
-        r = self._request_with_retries("POST", url, json=payload)
+        r = self._request_with_retries("POST", endpoint, json=payload)
         if r.status_code != 201:
             logging.error(f"Failed to create config version for workspace {workspace_id}: {r.text}")
-            raise TFEServiceError(r.status_code, f"{url}: {r.text}")
+            raise TFEServiceError(r.status_code, f"{endpoint}: {r.text}")
         data = r.json()
         if "data" not in data or "id" not in data["data"] or "attributes" not in data["data"] or "upload-url" not in data["data"]["attributes"]:
-            logging.error(f"Malformed response from {url}: {data}")
-            raise TFEServiceError(r.status_code, f"Malformed response from {url}: {data}")
+            logging.error(f"Malformed response from {endpoint}: {data}")
+            raise TFEServiceError(r.status_code, f"Malformed response from {endpoint}: {data}")
         return data["data"]["id"], data["data"]["attributes"]["upload-url"]
 
     def upload_files(self, upload_url, archive_path):
@@ -193,7 +207,7 @@ class TFEClient:
 
     def create_workspace(self, name, org, auto_apply=False, execution_mode="remote"):
         """Create a new workspace in the organization."""
-        url = f"{self.api_url}/api/v2/organizations/{org}/workspaces"
+        endpoint = f"organizations/{org}/workspaces"
         payload = {
             "data": {
                 "type": "workspaces",
@@ -204,19 +218,19 @@ class TFEClient:
                 }
             }
         }
-        r = self._request_with_retries("POST", url, json=payload)
+        r = self._request_with_retries("POST", endpoint, json=payload)
         if r.status_code != 201:
             logging.error(f"Failed to create workspace {name}: {r.text}")
-            raise TFEServiceError(r.status_code, f"{url}: {r.text}")
+            raise TFEServiceError(r.status_code, f"{endpoint}: {r.text}")
         data = r.json()
         if "data" not in data or "id" not in data["data"]:
-            logging.error(f"Malformed response from {url}: {data}")
-            raise TFEServiceError(r.status_code, f"Malformed response from {url}: {data}")
+            logging.error(f"Malformed response from {endpoint}: {data}")
+            raise TFEServiceError(r.status_code, f"Malformed response from {endpoint}: {data}")
         return data["data"]["id"]
 
     def create_run(self, workspace_id, config_version_id):
         """Create a new run in the workspace."""
-        url = f"{self.api_url}/api/v2/runs"
+        endpoint = "runs"
         payload = {
             "data": {
                 "type": "runs",
@@ -239,14 +253,14 @@ class TFEClient:
                 }
             }
         }
-        r = self._request_with_retries("POST", url, json=payload)
+        r = self._request_with_retries("POST", endpoint, json=payload)
         if r.status_code != 201:
             logging.error(f"Failed to create run: {r.text}")
-            raise TFEServiceError(r.status_code, f"{url}: {r.text}")
+            raise TFEServiceError(r.status_code, f"{endpoint}: {r.text}")
         data = r.json()
         if "data" not in data or "id" not in data["data"]:
-            logging.error(f"Malformed response from {url}: {data}")
-            raise TFEServiceError(r.status_code, f"Malformed response from {url}: {data}")
+            logging.error(f"Malformed response from {endpoint}: {data}")
+            raise TFEServiceError(r.status_code, f"Malformed response from {endpoint}: {data}")
         return data["data"]["id"]
 
     def create_plan(self, workspace_id, bundle_url):
@@ -290,16 +304,16 @@ class TFEClient:
 
     def wait_for_run(self, run_id):
         """Wait for a run to complete and return its final status."""
-        url = f"{self.api_url}/api/v2/runs/{run_id}"
+        endpoint = f"runs/{run_id}"
         while True:
-            r = self._request_with_retries("GET", url)
+            r = self._request_with_retries("GET", endpoint)
             if r.status_code != 200:
                 logging.error(f"Failed to get run status: {r.text}")
-                raise TFEServiceError(r.status_code, f"{url}: {r.text}")
+                raise TFEServiceError(r.status_code, f"{endpoint}: {r.text}")
             data = r.json()
             if "data" not in data or "attributes" not in data["data"] or "status" not in data["data"]["attributes"]:
-                logging.error(f"Malformed response from {url}: {data}")
-                raise TFEServiceError(r.status_code, f"Malformed response from {url}: {data}")
+                logging.error(f"Malformed response from {endpoint}: {data}")
+                raise TFEServiceError(r.status_code, f"Malformed response from {endpoint}: {data}")
             status = data["data"]["attributes"]["status"]
             if status in ["planned_and_finished", "applied", "errored", "canceled", "discarded"]:
                 return status
@@ -307,15 +321,15 @@ class TFEClient:
 
     def get_plan_output(self, run_id):
         """Get the plan output for a run."""
-        url = f"{self.api_url}/api/v2/runs/{run_id}/plan"
-        r = self._request_with_retries("GET", url)
+        endpoint = f"runs/{run_id}/plan"
+        r = self._request_with_retries("GET", endpoint)
         if r.status_code != 200:
             logging.error(f"Failed to get plan output: {r.text}")
-            raise TFEServiceError(r.status_code, f"{url}: {r.text}")
+            raise TFEServiceError(r.status_code, f"{endpoint}: {r.text}")
         data = r.json()
         if "data" not in data or "attributes" not in data["data"] or "log-read-url" not in data["data"]["attributes"]:
-            logging.error(f"Malformed response from {url}: {data}")
-            raise TFEServiceError(r.status_code, f"Malformed response from {url}: {data}")
+            logging.error(f"Malformed response from {endpoint}: {data}")
+            raise TFEServiceError(r.status_code, f"Malformed response from {endpoint}: {data}")
         log_url = data["data"]["attributes"]["log-read-url"]
         r = requests.get(log_url, timeout=self.timeout)
         if r.status_code != 200:
@@ -325,15 +339,15 @@ class TFEClient:
 
     def get_apply_output(self, run_id):
         """Get the apply output for a run."""
-        url = f"{self.api_url}/api/v2/runs/{run_id}/apply"
-        r = self._request_with_retries("GET", url)
+        endpoint = f"runs/{run_id}/apply"
+        r = self._request_with_retries("GET", endpoint)
         if r.status_code != 200:
             logging.error(f"Failed to get apply output: {r.text}")
-            raise TFEServiceError(r.status_code, f"{url}: {r.text}")
+            raise TFEServiceError(r.status_code, f"{endpoint}: {r.text}")
         data = r.json()
         if "data" not in data or "attributes" not in data["data"] or "log-read-url" not in data["data"]["attributes"]:
-            logging.error(f"Malformed response from {url}: {data}")
-            raise TFEServiceError(r.status_code, f"Malformed response from {url}: {data}")
+            logging.error(f"Malformed response from {endpoint}: {data}")
+            raise TFEServiceError(r.status_code, f"Malformed response from {endpoint}: {data}")
         log_url = data["data"]["attributes"]["log-read-url"]
         r = requests.get(log_url, timeout=self.timeout)
         if r.status_code != 200:
@@ -343,9 +357,9 @@ class TFEClient:
 
     def apply_run(self, run_id):
         """Apply a run that has been planned."""
-        url = f"{self.api_url}/api/v2/runs/{run_id}/actions/apply"
-        r = self._request_with_retries("POST", url)
+        endpoint = f"runs/{run_id}/actions/apply"
+        r = self._request_with_retries("POST", endpoint)
         if r.status_code != 202:
             logging.error(f"Failed to apply run: {r.text}")
-            raise TFEServiceError(r.status_code, f"{url}: {r.text}")
+            raise TFEServiceError(r.status_code, f"{endpoint}: {r.text}")
         return True
