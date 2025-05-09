@@ -1,0 +1,27 @@
+{
+  "kind": "asp-postgres",
+  "schema_version": "1.0.0",
+  "metadata": {
+    "name": "my-aspnet-app",
+    "description": "Sample ASP.NET application with PostgreSQL database",
+    "environment": "dev"
+  },
+  "spec": {
+    "resource_group_name": "rg-my-aspnet-app-dev",
+    "location": "eastus",
+    "app_name": "my-aspnet-app",
+    "vnet_name": "vnet-my-aspnet-app-dev",
+    "app_service_plan_name": "plan-my-aspnet-app-dev",
+    "app_service_name": "app-my-aspnet-app-dev",
+    "postgres_server_name": "pg-my-aspnet-app-dev",
+    "postgres_admin_user": "pgadmin",
+    "postgres_admin_password": "P@ssw0rd123!",
+    "db_name": "myappdb",
+    "environment": "Development",
+    "tags": {
+      "project": "my-aspnet-app",
+      "managed_by": "porc",
+      "cost_center": "IT-123"
+    }
+  }
+} 
