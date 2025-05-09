@@ -8,8 +8,9 @@ import time
 from datetime import datetime
 from enum import Enum
 from typing import Dict, Any, Optional
-import boto3
-from botocore.exceptions import ClientError
+from azure.data.tables import TableServiceClient, TableClient
+from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
+import asyncio
 
 class RunState(str, Enum):
     SUBMITTED = "submitted"
@@ -25,57 +26,53 @@ class RunState(str, Enum):
 
 class StateService:
     def __init__(self, table_name: Optional[str] = None):
-        """Initialize state service with DynamoDB table."""
-        self.table_name = table_name or os.getenv("PORC_STATE_TABLE")
-        if not self.table_name:
-            raise ValueError("State table name is required")
-        
-        self.dynamodb = boto3.resource('dynamodb')
-        self.table = self.dynamodb.Table(self.table_name)
-        self._ensure_table_exists()
+        """Initialize state service with Azure Table Storage."""
+        self.table_name = table_name or os.getenv("PORC_STATE_TABLE", "porcstate")
+        self._table_service = None
+        self._table_client = None
+    
+    @property
+    def table_service(self) -> TableServiceClient:
+        """Get the table service client, initializing it if needed."""
+        if self._table_service is None:
+            account_name = os.getenv("STORAGE_ACCOUNT")
+            account_key = os.getenv("STORAGE_ACCESS_KEY")
+            if not account_name or not account_key:
+                raise ValueError("Azure Storage account name and access key are required")
+            
+            connection_string = f"DefaultEndpointsProtocol=https;AccountName={account_name};AccountKey={account_key};EndpointSuffix=core.windows.net"
+            self._table_service = TableServiceClient.from_connection_string(connection_string)
+            self._ensure_table_exists()
+        return self._table_service
+    
+    @property
+    def table_client(self) -> TableClient:
+        """Get the table client, initializing it if needed."""
+        if self._table_client is None:
+            self._table_client = self.table_service.get_table_client(self.table_name)
+        return self._table_client
     
     def _ensure_table_exists(self):
         """Ensure the state table exists."""
         try:
-            self.table.table_status
-        except ClientError as e:
-            if e.response['Error']['Code'] == 'ResourceNotFoundException':
-                self.table = self.dynamodb.create_table(
-                    TableName=self.table_name,
-                    KeySchema=[
-                        {'AttributeName': 'run_id', 'KeyType': 'HASH'}
-                    ],
-                    AttributeDefinitions=[
-                        {'AttributeName': 'run_id', 'AttributeType': 'S'},
-                        {'AttributeName': 'workspace', 'AttributeType': 'S'}
-                    ],
-                    GlobalSecondaryIndexes=[
-                        {
-                            'IndexName': 'workspace-index',
-                            'KeySchema': [
-                                {'AttributeName': 'workspace', 'KeyType': 'HASH'}
-                            ],
-                            'Projection': {'ProjectionType': 'ALL'},
-                            'ProvisionedThroughput': {
-                                'ReadCapacityUnits': 5,
-                                'WriteCapacityUnits': 5
-                            }
-                        }
-                    ],
-                    ProvisionedThroughput={
-                        'ReadCapacityUnits': 5,
-                        'WriteCapacityUnits': 5
-                    }
-                )
-                self.table.wait_until_exists()
-                logging.info(f"Created state table: {self.table_name}")
+            self._table_service.create_table(self.table_name)
+            logging.info(f"Created state table: {self.table_name}")
+        except ResourceExistsError:
+            logging.info(f"Using existing state table: {self.table_name}")
     
-    def get_state(self, run_id: str) -> Dict[str, Any]:
+    async def get_state(self, run_id: str) -> Dict[str, Any]:
         """Get the current state of a run."""
         try:
-            response = self.table.get_item(Key={'run_id': run_id})
-            return response.get('Item', {})
-        except ClientError as e:
+            # Run the synchronous Azure Table Storage operation in a thread pool
+            loop = asyncio.get_event_loop()
+            entity = await loop.run_in_executor(
+                None,
+                lambda: self.table_client.get_entity(partition_key=run_id, row_key=run_id)
+            )
+            return dict(entity)
+        except ResourceNotFoundError:
+            return {}
+        except Exception as e:
             raise ValueError(f"Failed to get state: {str(e)}")
     
     def update_state(self, run_id: str, state: RunState, 
@@ -85,69 +82,57 @@ class StateService:
         try:
             # Check for concurrent operations on the same workspace
             if workspace:
-                response = self.table.query(
-                    IndexName='workspace-index',
-                    KeyConditionExpression='workspace = :ws',
-                    FilterExpression='state IN (:planning, :applying)',
-                    ExpressionAttributeValues={
-                        ':ws': workspace,
-                        ':planning': RunState.PLANNING.value,
-                        ':applying': RunState.APPLYING.value
-                    }
-                )
-                if response.get('Items'):
+                query = f"workspace eq '{workspace}' and (state eq '{RunState.PLANNING.value}' or state eq '{RunState.APPLYING.value}')"
+                entities = self.table_client.query_entities(query)
+                if list(entities):
                     raise ValueError(f"Workspace {workspace} has a concurrent operation in progress")
             
             # Update the state
-            item = {
-                'run_id': run_id,
+            entity = {
+                'PartitionKey': run_id,
+                'RowKey': run_id,
                 'state': state.value,
                 'updated_at': datetime.utcnow().isoformat()
             }
             if workspace:
-                item['workspace'] = workspace
+                entity['workspace'] = workspace
             if metadata:
-                item['metadata'] = metadata
+                entity['metadata'] = json.dumps(metadata)
             
-            self.table.put_item(Item=item)
-            return item
-        except ClientError as e:
+            self.table_client.upsert_entity(entity)
+            return entity
+        except Exception as e:
             raise ValueError(f"Failed to update state: {str(e)}")
     
     def acquire_lock(self, workspace: str, run_id: str, ttl: int = 300) -> bool:
         """Acquire a lock for a workspace operation."""
         try:
-            self.table.put_item(
-                Item={
-                    'run_id': f"lock:{workspace}",
-                    'workspace': workspace,
-                    'locked_by': run_id,
-                    'expires_at': int(time.time()) + ttl
-                },
-                ConditionExpression='attribute_not_exists(run_id) OR expires_at < :now',
-                ExpressionAttributeValues={
-                    ':now': int(time.time())
-                }
-            )
+            entity = {
+                'PartitionKey': f"lock:{workspace}",
+                'RowKey': f"lock:{workspace}",
+                'workspace': workspace,
+                'locked_by': run_id,
+                'expires_at': int(time.time()) + ttl
+            }
+            self.table_client.upsert_entity(entity)
             return True
-        except ClientError as e:
-            if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
-                return False
-            raise
+        except Exception as e:
+            logging.error(f"Failed to acquire lock: {str(e)}")
+            return False
     
     def release_lock(self, workspace: str, run_id: str):
         """Release a workspace lock."""
         try:
-            self.table.delete_item(
-                Key={'run_id': f"lock:{workspace}"},
-                ConditionExpression='locked_by = :run_id',
-                ExpressionAttributeValues={
-                    ':run_id': run_id
-                }
+            self.table_client.delete_entity(
+                partition_key=f"lock:{workspace}",
+                row_key=f"lock:{workspace}"
             )
-        except ClientError as e:
-            if e.response['Error']['Code'] != 'ConditionalCheckFailedException':
-                raise
+        except Exception as e:
+            logging.error(f"Failed to release lock: {str(e)}")
+
+def get_state_service() -> StateService:
+    """Get a state service instance."""
+    return StateService()
 
 # Initialize the state service
-state_service = StateService() 
+state_service = get_state_service() 

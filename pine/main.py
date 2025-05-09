@@ -23,7 +23,9 @@ handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(JsonFormatter())
 logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
 
-SCHEMA_DIR = Path(os.getenv("PINE_SCHEMA_DIR", Path(__file__).parent / "schemas"))
+SCHEMA_DIR = Path(os.getenv("PINE_SCHEMA_DIR", 
+    Path(__file__).parent 
+    / "schemas"))
 
 class BlueprintValidationError(Exception):
     """Raised when blueprint validation fails."""
@@ -63,7 +65,8 @@ if __name__ == "__main__":
     """Entry point for the pine CLI."""
     if len(sys.argv) > 1 and sys.argv[1] == "healthz":
         healthz()
-    if len(sys.argv) != 3 or sys.argv[1] != "lint":
+    if (len(sys.argv) != 3 
+            or sys.argv[1] != "lint"):
         print("Usage: python pine/main.py lint <blueprint.json>")
         sys.exit(1)
     try:

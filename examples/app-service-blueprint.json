@@ -1,0 +1,32 @@
+{
+  "kind": "app-service",
+  "schema_version": "1.0.0",
+  "metadata": {
+    "name": "my-web-app",
+    "description": "Sample web application deployment",
+    "environment": "dev"
+  },
+  "spec": {
+    "resource_group_name": "rg-my-web-app-dev",
+    "location": "eastus",
+    "app_name": "my-web-app",
+    "vnet_name": "vnet-my-web-app-dev",
+    "app_service_plan_name": "plan-my-web-app-dev",
+    "app_service_name": "app-my-web-app-dev",
+    "os_type": "Linux",
+    "runtime_stack": "node",
+    "runtime_version": "18-lts",
+    "app_service_plan_sku": "P1v2",
+    "environment": "Development",
+    "app_settings": {
+      "NODE_ENV": "development",
+      "WEBSITE_NODE_DEFAULT_VERSION": "~18",
+      "WEBSITE_RUN_FROM_PACKAGE": "1"
+    },
+    "tags": {
+      "project": "my-web-app",
+      "managed_by": "porc",
+      "cost_center": "IT-123"
+    }
+  }
+} 
