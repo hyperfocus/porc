@@ -51,7 +51,7 @@ async def test_full_porc_workflow(async_client, headers, pr_sha, repo_full):
     build_data = resp.json() if hasattr(resp, 'json') else {}
     assert "status" in build_data or resp.status_code == 202
 
-    # Step 3: Plan
+    # Step 3: Plan ss
     resp = await request(async_client, "post", f"/run/{run_id}/plan", headers=headers)
     assert resp.status_code in (200, 202, 500)  # 500 if TFE is not configured
     plan_data = resp.json() if hasattr(resp, 'json') else {}
