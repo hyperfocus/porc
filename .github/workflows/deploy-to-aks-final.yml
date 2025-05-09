@@ -1,12 +1,11 @@
 name: Deploy PORC to AKS
 
+# Only deploy in two cases:
+# 1. Manual trigger via workflow_dispatch
+# 2. Direct push to main branch (including merged PRs)
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # Manual trigger
   push:
-    branches:
-      - main
-  pull_request:
-    types: [closed]
     branches:
       - main
 
@@ -18,8 +17,6 @@ env:
 
 jobs:
   deploy:
-    # Only run this job if the PR was merged (not just closed) or if it was a direct push to main
-    if: github.event.pull_request.merged == true || github.event_name == 'push'
     runs-on: ubuntu-latest
 
     steps:
