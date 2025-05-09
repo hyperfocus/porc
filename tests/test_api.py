@@ -91,7 +91,7 @@ async def test_full_lifecycle_all_routes(async_client, headers, repo_full, pr_sh
         "source_repo": repo_full or "test-org/test-repo"
     }
 
-    # Submit blueprint
+    # Submit blueprint shaaaaa
     resp = await request(async_client, "post", "/blueprint", headers=headers, json=blueprint)
     assert resp.status_code == 200
     run_id = resp.json()["run_id"]
