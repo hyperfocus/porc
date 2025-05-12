@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "resource_group_name",
+    "location",
+    "vnet_name",
+    "vnet_address_space",
+    "app_subnet_prefix",
+    "app_service_plan_name",
+    "app_service_plan_sku",
+    "app_service_name",
+    "os_type",
+    "runtime_stack",
+    "runtime_version",
+    "java_server",
+    "app_settings",
+    "custom_domain_name",
+    "custom_domain_prefix",
+    "environment",
+    "app_name"
+  ],
+  "properties": {
+    "resource_group_name": {"type": "string"},
+    "location": {"type": "string"},
+    "vnet_name": {"type": "string"},
+    "vnet_address_space": {"type": "string"},
+    "app_subnet_prefix": {"type": "string"},
+    "app_service_plan_name": {"type": "string"},
+    "app_service_plan_sku": {"type": "string"},
+    "app_service_name": {"type": "string"},
+    "os_type": {"type": "string"},
+    "runtime_stack": {"type": "string"},
+    "runtime_version": {"type": "string"},
+    "java_server": {"type": "string"},
+    "app_settings": {"type": "object"},
+    "custom_domain_name": {"type": "string"},
+    "custom_domain_prefix": {"type": "string"},
+    "environment": {"type": "string"},
+    "app_name": {"type": "string"}
+  }
+} 

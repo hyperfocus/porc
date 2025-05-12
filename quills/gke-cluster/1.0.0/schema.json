@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "project_id",
+    "region",
+    "vpc_name",
+    "subnet_name",
+    "subnet_cidr",
+    "pods_cidr",
+    "services_cidr",
+    "cluster_name",
+    "master_cidr",
+    "authorized_cidr",
+    "node_pool_name",
+    "node_count",
+    "machine_type",
+    "disk_size_gb",
+    "disk_type",
+    "environment"
+  ],
+  "properties": {
+    "project_id": {"type": "string"},
+    "region": {"type": "string"},
+    "vpc_name": {"type": "string"},
+    "subnet_name": {"type": "string"},
+    "subnet_cidr": {"type": "string"},
+    "pods_cidr": {"type": "string"},
+    "services_cidr": {"type": "string"},
+    "cluster_name": {"type": "string"},
+    "master_cidr": {"type": "string"},
+    "authorized_cidr": {"type": "string"},
+    "node_pool_name": {"type": "string"},
+    "node_count": {"type": "integer"},
+    "machine_type": {"type": "string"},
+    "disk_size_gb": {"type": "integer"},
+    "disk_type": {"type": "string"},
+    "environment": {"type": "string"}
+  }
+} 

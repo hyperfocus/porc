@@ -1,0 +1,61 @@
+name: Upload Changed Quill Templates and Schemas
+
+on:
+  push:
+    paths:
+      - 'quills/**'
+      - 'scripts/upload_quill.py'
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  upload-quills:
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: ${{ vars.BASE_URL }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install requests
+        run: pip install requests
+
+      - name: Find changed quill templates and schemas
+        id: changes
+        run: |
+          echo "## Find changed quill kinds"
+          git fetch origin main
+          CHANGED=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E '^quills/' || true)
+          echo "$CHANGED"
+          KINDS=""
+          for file in $CHANGED; do
+            if [[ $file =~ quills/([^/]+)/([^/]+)/ ]]; then
+              kind="${BASH_REMATCH[1]}"
+              version="${BASH_REMATCH[2]}"
+              KINDS="$KINDS $kind/$version"
+            fi
+          done
+          KINDS=$(echo $KINDS | tr ' ' '\n' | sort -u | tr '\n' ' ')
+          echo "KINDS=$KINDS" >> $GITHUB_OUTPUT
+
+      - name: Upload changed quills
+        if: steps.changes.outputs.KINDS != ''
+        run: |
+          for kv in ${{ steps.changes.outputs.KINDS }}; do
+            kind=$(echo $kv | cut -d/ -f1)
+            version=$(echo $kv | cut -d/ -f2)
+            templates="quills/$kind/$version/templates.json"
+            schema="quills/$kind/$version/schema.json"
+            if [[ -f "$templates" && -f "$schema" ]]; then
+              echo "Uploading $kind $version"
+              python scripts/upload_quill.py "$kind" "$version" "$templates" "$schema"
+            else
+              echo "Missing templates or schema for $kind $version, skipping."
+            fi
+          done 

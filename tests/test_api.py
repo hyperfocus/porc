@@ -2,6 +2,8 @@ import pytest
 from httpx import AsyncClient
 import logging
 import asyncio
+import configparser
+import json
 
 @pytest.fixture
 def headers(host_header):
@@ -21,21 +23,64 @@ async def request(client, method, url, headers=None, json=None):
     else:
         return await getattr(client, method)(url, headers=headers)
 
+async def get_variables_from_ini_and_schema(async_client, ini_path):
+    config = configparser.ConfigParser()
+    config.read(ini_path)
+    kind = config.get("kind", "name")
+    version = config.get("kind", "version", fallback="latest")
+    variables = dict(config.items("variables"))
+
+    # Fetch schema from API
+    resp = await async_client.get(f"/quills/{kind}", params={"version": version})
+    assert resp.status_code == 200
+    schema = resp.json()["schema"]
+    required = schema["required"]
+    properties = schema.get("properties", {})
+
+    # Validate and type-cast variables
+    missing = [k for k in required if k not in variables]
+    assert not missing, f"Missing required variables: {missing}"
+
+    def cast_value(val, typ):
+        if typ == "integer":
+            return int(val)
+        elif typ == "boolean":
+            return str(val).lower() in ("true", "1", "yes", "on")
+        elif typ == "object":
+            try:
+                return json.loads(val)
+            except Exception:
+                return val
+        else:
+            return val
+
+    formatted_vars = {}
+    for k in required:
+        typ = properties.get(k, {}).get("type", "string")
+        formatted_vars[k] = cast_value(variables[k], typ)
+    for k, v in variables.items():
+        if k not in formatted_vars:
+            typ = properties.get(k, {}).get("type", "string")
+            formatted_vars[k] = cast_value(v, typ)
+    return kind, version, formatted_vars
+
 @pytest.mark.asyncio
 async def test_full_porc_workflow(async_client, headers, pr_sha, repo_full):
     if not pr_sha:
         pytest.fail("pr_sha is required - must provide --pr-sha argument")
     
     logging.info(f"Running test with SHA: {pr_sha}")
-    
+
+    # Load variables from INI and schema
+    kind, version, variables = await get_variables_from_ini_and_schema(
+        async_client, "testdata/asp-postgres.ini"
+    )
+
     # Step 1: Submit Blueprint
     blueprint = {
-        "kind": "postgres-db",
-        "variables": {
-            "db_name": "mydb",
-            "db_user": "admin"
-        },
-        "schema_version": "1.0.0",
+        "kind": kind,
+        "variables": variables,
+        "schema_version": version,
         "external_reference": pr_sha,
         "source_repo": repo_full or "myorg/myrepo"
     }
@@ -82,16 +127,20 @@ async def test_full_lifecycle_all_routes(async_client, headers, repo_full, pr_sh
         pytest.fail("pr_sha is required - must provide --pr-sha argument")
     
     logging.info(f"Running test with SHA: {pr_sha}")
+
+    kind, version, variables = await get_variables_from_ini_and_schema(
+        async_client, "testdata/asp-postgres.ini"
+    )
     
     blueprint = {
-        "kind": "postgres-db",
-        "variables": {},
-        "schema_version": "1.0.0",
+        "kind": kind,
+        "variables": variables,
+        "schema_version": version,
         "external_reference": pr_sha,
         "source_repo": repo_full or "test-org/test-repo"
     }
 
-    # Submit blueprint shaaaaa
+    # Submit blueprint
     resp = await request(async_client, "post", "/blueprint", headers=headers, json=blueprint)
     assert resp.status_code == 200
     run_id = resp.json()["run_id"]

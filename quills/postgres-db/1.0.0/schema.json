@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "resource_group_name",
+    "location",
+    "environment",
+    "app_name",
+    "vnet_name",
+    "vnet_address_space",
+    "db_subnet_prefix",
+    "postgres_server_name",
+    "postgres_version",
+    "postgres_admin_user",
+    "postgres_admin_password",
+    "postgres_zone",
+    "postgres_storage_mb",
+    "postgres_sku_name",
+    "postgres_backup_retention_days",
+    "postgres_private_dns_zone",
+    "db_name"
+  ],
+  "properties": {
+    "resource_group_name": {"type": "string"},
+    "location": {"type": "string"},
+    "environment": {"type": "string"},
+    "app_name": {"type": "string"},
+    "vnet_name": {"type": "string"},
+    "vnet_address_space": {"type": "string"},
+    "db_subnet_prefix": {"type": "string"},
+    "postgres_server_name": {"type": "string"},
+    "postgres_version": {"type": "string"},
+    "postgres_admin_user": {"type": "string"},
+    "postgres_admin_password": {"type": "string"},
+    "postgres_zone": {"type": "string"},
+    "postgres_storage_mb": {"type": "integer"},
+    "postgres_sku_name": {"type": "string"},
+    "postgres_backup_retention_days": {"type": "integer"},
+    "postgres_private_dns_zone": {"type": "string"},
+    "db_name": {"type": "string"}
+  }
+} 

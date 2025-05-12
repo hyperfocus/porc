@@ -7,7 +7,7 @@ import re
 import logging
 import sys
 from datetime import datetime
-from fastapi import FastAPI, Request, Path, Depends
+from fastapi import FastAPI, Request, Path, Depends, APIRouter, UploadFile, File, Form, HTTPException
 from pydantic import BaseModel
 from porc_common.config import DB_PATH, RUNS_PATH, get_tfe_api, get_tfe_org
 from porc_core.render import render_blueprint
@@ -23,6 +23,7 @@ from porc_core.storage import StorageService, get_storage_service
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import traceback
+from typing import Optional
 
 # Environment configuration
 class Environment(str, Enum):
@@ -880,3 +881,40 @@ async def get_summary(
             status_code=500,
             content={"error": error_msg}
         )
+
+quills_router = APIRouter()
+
+@quills_router.post("/quills/")
+async def upload_quill(
+    kind: str = Form(...),
+    version: str = Form("latest"),
+    templates: UploadFile = File(...),
+    schema: UploadFile = File(...)
+):
+    templates_data = await templates.read()
+    schema_data = await schema.read()
+    try:
+        templates_json = json.loads(templates_data)
+        schema_json = json.loads(schema_data)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+
+    if mongo_db is not None:
+        await mongo_db.quills.update_one(
+            {"kind": kind, "version": version},
+            {"$set": {"templates": templates_json, "schema": schema_json}},
+            upsert=True
+        )
+    return {"status": "ok", "kind": kind, "version": version}
+
+@quills_router.get("/quills/{kind}")
+async def get_quill(kind: str, version: Optional[str] = "latest"):
+    if mongo_db is None:
+        raise HTTPException(status_code=500, detail="MongoDB not configured")
+    quill = await mongo_db.quills.find_one({"kind": kind, "version": version})
+    if not quill:
+        raise HTTPException(status_code=404, detail="Quill not found")
+    return {"templates": quill["templates"], "schema": quill["schema"]}
+
+# Register the router
+app.include_router(quills_router)
