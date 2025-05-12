@@ -37,7 +37,7 @@ async def get_variables_from_ini_and_schema(async_client, ini_path):
     required = schema["required"]
     properties = schema.get("properties", {})
 
-    # Validate and type-cast variables
+    # Validate and type-cast variables 000
     missing = [k for k in required if k not in variables]
     assert not missing, f"Missing required variables: {missing}"
 
