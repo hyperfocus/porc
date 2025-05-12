@@ -10,7 +10,6 @@ on:
       base_url:
         description: 'Base URL for the PORC API'
         required: false
-        default: ${{ vars.BASE_URL }}
 
 jobs:
   test:
@@ -33,7 +32,11 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest tests/ --base-url=${{ github.event.inputs.base_url || env.BASE_URL }} \
+          BASE_URL="${{ github.event.inputs.base_url }}"
+          if [ -z "$BASE_URL" ]; then
+            BASE_URL="${{ vars.BASE_URL }}"
+          fi
+          pytest tests/ --base-url="$BASE_URL" \
             --org "$ORG" --repo "$REPO" --repo-full "$REPO_FULL" --pr-id ${{ github.event.number }} --pr-sha ${{ github.sha }} --ignore-ssl
         env:
           ORG: ${{ github.repository_owner }}
